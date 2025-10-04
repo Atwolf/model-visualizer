@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Container, Box } from '@mui/material';
 import { ControlPanel } from './components/ControlPanel/ControlPanel';
 import { GraphCanvas } from './components/GraphCanvas/GraphCanvas';
+import { GraphQLTest } from './components/GraphQLTest';
 import { buildGraphFromRoots } from './lib/graph/builder';
 import { GraphNode, GraphEdge } from './lib/graph/types';
 
@@ -40,6 +41,8 @@ function App() {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
+      <GraphQLTest />
+
       <ControlPanel
         depth={depth}
         onDepthChange={setDepth}

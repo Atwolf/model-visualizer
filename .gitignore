@@ -1,2 +1,5 @@
 /node_modules
 /.ai_docs
+.env
+dist
+.env*
