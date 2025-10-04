@@ -71,11 +71,21 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           options={availableTypes}
           value={selectedTypes}
           onChange={(_, newValue) => handleTypeSelect(newValue)}
+          disabled={availableTypes.length === 0}
           renderInput={(params) => (
             <TextField
               {...params}
               label="Select Root Types"
-              placeholder="Start typing to search..."
+              placeholder={
+                availableTypes.length === 0
+                  ? 'No types available...'
+                  : 'Start typing to search...'
+              }
+              helperText={
+                availableTypes.length === 0
+                  ? 'Types are loading from GraphQL schema'
+                  : `${availableTypes.length} types available`
+              }
             />
           )}
           renderTags={(value, getTagProps) =>
