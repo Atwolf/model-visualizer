@@ -6,13 +6,19 @@ import { GraphQLTest } from './components/GraphQLTest';
 import { buildGraphFromRoots } from './lib/graph/builder';
 import { GraphNode, GraphEdge } from './lib/graph/types';
 import { useInitialTypeLoad } from './hooks/useInitialTypeLoad';
+import { useTypeFetcher } from './hooks/useTypeFetcher';
+import { IntrospectionType } from './lib/graphql/introspection';
 
 function App() {
   // Load default types from GraphQL
   const { types: loadedTypes, loading: typesLoading, error: typeLoadError } = useInitialTypeLoad();
 
+  // Type fetcher for dynamic loading
+  const { fetchMultipleTypes, cacheSize } = useTypeFetcher();
+
   const [depth, setDepth] = useState(2);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [typeData, setTypeData] = useState<Map<string, IntrospectionType>>(new Map());
   const [graphData, setGraphData] = useState<{
     nodes: GraphNode[];
     edges: GraphEdge[];
@@ -21,18 +27,31 @@ function App() {
   // Get available types from loaded types
   const availableTypes = Array.from(loadedTypes.keys());
 
-  // Build graph when selections change
-  useEffect(() => {
-    console.log('Graph rebuild:', { roots: selectedTypes, depth });
+  // Handle type selection - fetch introspection data for selected types
+  const handleTypeSelection = async (newTypes: string[]) => {
+    setSelectedTypes(newTypes);
 
+    // Fetch introspection data for newly selected types
+    if (newTypes.length > 0) {
+      const fetchedTypes = await fetchMultipleTypes(newTypes);
+      setTypeData(fetchedTypes);
+    } else {
+      setTypeData(new Map());
+    }
+  };
+
+  // Build graph when selections or type data changes
+  useEffect(() => {
     if (selectedTypes.length === 0) {
       setGraphData({ nodes: [], edges: [] });
       return;
     }
 
+    // For now, still using mock builder
+    // TODO: Replace with buildGraphFromIntrospection once implemented
     const { nodes, edges } = buildGraphFromRoots(selectedTypes, depth);
     setGraphData({ nodes, edges });
-  }, [selectedTypes, depth]);
+  }, [selectedTypes, typeData, depth]);
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -59,7 +78,7 @@ function App() {
         onDepthChange={setDepth}
         availableTypes={availableTypes}
         selectedTypes={selectedTypes}
-        onTypeSelect={setSelectedTypes}
+        onTypeSelect={handleTypeSelection}
       />
 
       <Box sx={{ border: '1px solid #ddd', borderRadius: 2, overflow: 'hidden' }}>

@@ -71,9 +71,6 @@ async function loadSingleType(
       };
     }
 
-    const loadTime = Date.now() - startTime;
-    console.log(`Loaded type ${typename} in ${loadTime}ms`);
-
     return {
       typename,
       data,
@@ -99,8 +96,6 @@ async function loadSingleType(
 export async function loadDefaultTypes(): Promise<InitialLoadResult> {
   const startTime = Date.now();
 
-  console.log('Loading default types:', DEFAULT_ROOT_TYPES);
-
   // Load all types in parallel
   const results = await Promise.all(
     DEFAULT_ROOT_TYPES.map((typename) => loadSingleType(typename))
@@ -119,12 +114,6 @@ export async function loadDefaultTypes(): Promise<InitialLoadResult> {
   }
 
   const totalTime = Date.now() - startTime;
-
-  console.log('Type load complete:', {
-    successful: successful.map((r) => r.typename),
-    failed: failed.map((r) => r.typename),
-    duration: totalTime + 'ms',
-  });
 
   return {
     successful,

@@ -113,8 +113,6 @@ const SCALAR_TYPES = new Set([
 export async function introspectType(
   typename: string
 ): Promise<IntrospectionType> {
-  console.log('Introspecting type:', typename);
-
   const response = await executeGraphQLQuery<TypeIntrospectionResult>(
     TYPE_INTROSPECTION_QUERY,
     { typename }
@@ -131,15 +129,7 @@ export async function introspectType(
     throw new Error(`Type "${typename}" not found in schema`);
   }
 
-  const result = response.data.__type;
-
-  console.log('Type introspection result:', {
-    name: result.name,
-    kind: result.kind,
-    fieldCount: result.fields?.length || 0
-  });
-
-  return result;
+  return response.data.__type;
 }
 
 /**
@@ -177,19 +167,12 @@ export function unwrapType(typeRef: IntrospectionTypeRef): {
   }
 
   // At this point, we should have the actual type
-  const unwrapped = {
+  return {
     name: currentType.name || 'Unknown',
     kind: currentType.kind,
     isList,
     isNonNull,
   };
-
-  console.log('Unwrapped type:', {
-    original: typeRef,
-    unwrapped
-  });
-
-  return unwrapped;
 }
 
 /**
