@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button, Box, Typography, Paper, Alert } from '@mui/material';
 import { executeGraphQLQuery } from '../lib/graphql/client';
+import { introspectType, isRelationshipField, unwrapType } from '../lib/graphql/introspection';
 
 export const GraphQLTest = () => {
   const [result, setResult] = useState<string>('');
@@ -35,19 +36,73 @@ export const GraphQLTest = () => {
     }
   };
 
+  const testTypeIntrospection = async () => {
+    setLoading(true);
+    setError('');
+    setResult('');
+
+    try {
+      // Test introspecting DeviceType
+      const typeData = await introspectType('DeviceType');
+
+      // Analyze the type
+      const relationshipFields = typeData.fields?.filter(isRelationshipField) || [];
+      const scalarFields = typeData.fields?.filter(f => !isRelationshipField(f)) || [];
+
+      // Test unwrapping a field type
+      const sampleField = typeData.fields?.[0];
+      const unwrapped = sampleField ? unwrapType(sampleField.type) : null;
+
+      const analysis = {
+        type: {
+          name: typeData.name,
+          kind: typeData.kind,
+          totalFields: typeData.fields?.length || 0,
+        },
+        fieldBreakdown: {
+          relationships: relationshipFields.length,
+          scalars: scalarFields.length,
+        },
+        sampleRelationships: relationshipFields.slice(0, 5).map(f => ({
+          name: f.name,
+          type: unwrapType(f.type).name,
+        })),
+        sampleUnwrap: unwrapped ? {
+          fieldName: sampleField?.name,
+          unwrapped,
+        } : null,
+      };
+
+      setResult(JSON.stringify(analysis, null, 2));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
       <Typography variant="h6" gutterBottom>
         GraphQL Client Test
       </Typography>
 
-      <Box sx={{ mb: 2 }}>
+      <Box sx={{ mb: 2, display: 'flex', gap: 2 }}>
         <Button
           variant="contained"
           onClick={testSchemaQuery}
           disabled={loading}
         >
           {loading ? 'Testing...' : 'Test Schema Query'}
+        </Button>
+
+        <Button
+          variant="contained"
+          color="secondary"
+          onClick={testTypeIntrospection}
+          disabled={loading}
+        >
+          {loading ? 'Testing...' : 'Test Type Introspection'}
         </Button>
       </Box>
 
