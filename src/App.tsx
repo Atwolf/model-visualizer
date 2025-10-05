@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Container, Box, Alert, CircularProgress } from '@mui/material';
 import { ControlPanel } from './components/ControlPanel/ControlPanel';
 import { GraphCanvas } from './components/GraphCanvas/GraphCanvas';
@@ -14,7 +14,7 @@ function App() {
   const { types: loadedTypes, loading: typesLoading, error: typeLoadError } = useInitialTypeLoad();
 
   // Type fetcher for dynamic loading
-  const { fetchMultipleTypes, cacheSize } = useTypeFetcher();
+  const { fetchMultipleTypes } = useTypeFetcher();
 
   const [depth, setDepth] = useState(2);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -40,6 +40,13 @@ function App() {
     }
   };
 
+  // Stable transform options - memoized to prevent unnecessary re-renders
+  const transformOptions = useMemo<TransformOptions>(() => ({
+    maxDepth: depth,
+    includeScalars: false, // Filter out scalar fields by default
+    showFieldNodes: false,
+  }), [depth]);
+
   // Build graph when selections or type data changes
   useEffect(() => {
     if (selectedTypes.length === 0) {
@@ -52,25 +59,29 @@ function App() {
       return;
     }
 
+    let cancelled = false;
+
     // Build graph from introspection data with auto-fetch
     const buildGraph = async () => {
-      const options: TransformOptions = {
-        maxDepth: depth,
-        includeScalars: false, // Filter out scalar fields by default
-      };
-
       const { nodes, edges } = await buildGraphFromIntrospection(
         selectedTypes,
         typeData,
-        options,
+        transformOptions,
         fetchMultipleTypes // Enable auto-fetch of referenced types
       );
 
-      setGraphData({ nodes, edges });
+      if (!cancelled) {
+        setGraphData({ nodes, edges });
+      }
     };
 
     buildGraph();
-  }, [selectedTypes, typeData, depth, fetchMultipleTypes]);
+
+    // Cleanup: cancel if component unmounts or dependencies change
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTypes, typeData, transformOptions, fetchMultipleTypes]);
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
