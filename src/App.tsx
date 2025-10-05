@@ -7,6 +7,7 @@ import { buildGraphFromIntrospection, TransformOptions } from './lib/graph/graph
 import { GraphNode, GraphEdge } from './lib/graph/types';
 import { useInitialTypeLoad } from './hooks/useInitialTypeLoad';
 import { useTypeFetcher } from './hooks/useTypeFetcher';
+import { useTypeFilter } from './hooks/useTypeFilter';
 import { IntrospectionType } from './lib/graphql/introspection';
 
 function App() {
@@ -15,6 +16,9 @@ function App() {
 
   // Type fetcher for dynamic loading
   const { fetchMultipleTypes } = useTypeFetcher();
+
+  // Type filter for showing only relevant types
+  const { config: filterConfig, isTypeAllowed } = useTypeFilter();
 
   const [depth, setDepth] = useState(2);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -63,6 +67,12 @@ function App() {
 
     // Build graph from introspection data with auto-fetch
     const buildGraph = async () => {
+      const options: TransformOptions = {
+        maxDepth: depth,
+        includeScalars: false, // Filter out scalar fields by default
+        typeFilter: isTypeAllowed, // Filter types based on patterns
+      };
+
       const { nodes, edges } = await buildGraphFromIntrospection(
         selectedTypes,
         typeData,
