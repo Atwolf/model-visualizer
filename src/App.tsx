@@ -3,7 +3,7 @@ import { Container, Box, Alert, CircularProgress } from '@mui/material';
 import { ControlPanel } from './components/ControlPanel/ControlPanel';
 import { GraphCanvas } from './components/GraphCanvas/GraphCanvas';
 import { GraphQLTest } from './components/GraphQLTest';
-import { buildGraphFromRoots } from './lib/graph/builder';
+import { buildGraphFromIntrospection, TransformOptions } from './lib/graph/graphqlTransformer';
 import { GraphNode, GraphEdge } from './lib/graph/types';
 import { useInitialTypeLoad } from './hooks/useInitialTypeLoad';
 import { useTypeFetcher } from './hooks/useTypeFetcher';
@@ -47,11 +47,30 @@ function App() {
       return;
     }
 
-    // For now, still using mock builder
-    // TODO: Replace with buildGraphFromIntrospection once implemented
-    const { nodes, edges } = buildGraphFromRoots(selectedTypes, depth);
-    setGraphData({ nodes, edges });
-  }, [selectedTypes, typeData, depth]);
+    // Wait for type data to be loaded
+    if (typeData.size === 0) {
+      return;
+    }
+
+    // Build graph from introspection data with auto-fetch
+    const buildGraph = async () => {
+      const options: TransformOptions = {
+        maxDepth: depth,
+        includeScalars: false, // Filter out scalar fields by default
+      };
+
+      const { nodes, edges } = await buildGraphFromIntrospection(
+        selectedTypes,
+        typeData,
+        options,
+        fetchMultipleTypes // Enable auto-fetch of referenced types
+      );
+
+      setGraphData({ nodes, edges });
+    };
+
+    buildGraph();
+  }, [selectedTypes, typeData, depth, fetchMultipleTypes]);
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
