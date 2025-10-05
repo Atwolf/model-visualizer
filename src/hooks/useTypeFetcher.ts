@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { introspectType, IntrospectionType } from '../lib/graphql/introspection';
 
 interface TypeCache {
@@ -21,16 +21,40 @@ export interface UseTypeFetcherResult {
 }
 
 /**
+ * Global cache - persists across component re-renders and hook re-initializations
+ * This ensures types fetched once are available throughout the app lifecycle
+ */
+const globalCache: TypeCache = {
+  types: new Map(),
+  fetchedAt: new Map(),
+};
+
+/**
+ * Subscribers that get notified when cache changes
+ */
+const cacheSubscribers = new Set<() => void>();
+
+function notifyCacheChange() {
+  cacheSubscribers.forEach(callback => callback());
+}
+
+/**
  * React hook for fetching and caching GraphQL types
- * Maintains in-memory cache to avoid redundant API calls
+ * Uses global cache to persist data across component lifecycles
  *
  * @returns Type fetching functions and cache utilities
  */
 export function useTypeFetcher(): UseTypeFetcherResult {
-  const [cache, setCache] = useState<TypeCache>({
-    types: new Map(),
-    fetchedAt: new Map(),
-  });
+  const [cacheVersion, setCacheVersion] = useState(0);
+
+  // Subscribe to cache changes
+  useEffect(() => {
+    const callback = () => setCacheVersion(v => v + 1);
+    cacheSubscribers.add(callback);
+    return () => {
+      cacheSubscribers.delete(callback);
+    };
+  }, []);
 
   /**
    * Retrieves type from cache without fetching
@@ -40,9 +64,9 @@ export function useTypeFetcher(): UseTypeFetcherResult {
    */
   const getType = useCallback(
     (typename: string): IntrospectionType | undefined => {
-      return cache.types.get(typename);
+      return globalCache.types.get(typename);
     },
-    [cache]
+    []
   );
 
   /**
@@ -53,8 +77,9 @@ export function useTypeFetcher(): UseTypeFetcherResult {
    */
   const fetchType = useCallback(
     async (typename: string): Promise<FetchTypeResult> => {
-      // Check cache first
-      const cachedType = cache.types.get(typename);
+      // Check global cache first
+      const cachedType = globalCache.types.get(typename);
+
       if (cachedType) {
         return {
           type: cachedType,
@@ -66,19 +91,12 @@ export function useTypeFetcher(): UseTypeFetcherResult {
       try {
         const type = await introspectType(typename);
 
-        // Update cache
-        setCache((prev) => {
-          const newTypes = new Map(prev.types);
-          const newFetchedAt = new Map(prev.fetchedAt);
+        // Update global cache
+        globalCache.types.set(typename, type);
+        globalCache.fetchedAt.set(typename, new Date());
 
-          newTypes.set(typename, type);
-          newFetchedAt.set(typename, new Date());
-
-          return {
-            types: newTypes,
-            fetchedAt: newFetchedAt,
-          };
-        });
+        // Notify subscribers
+        notifyCacheChange();
 
         return {
           type,
@@ -96,7 +114,7 @@ export function useTypeFetcher(): UseTypeFetcherResult {
         };
       }
     },
-    [cache]
+    [] // No dependencies - stable function reference
   );
 
   /**
@@ -108,16 +126,25 @@ export function useTypeFetcher(): UseTypeFetcherResult {
    */
   const fetchMultipleTypes = useCallback(
     async (typenames: string[]): Promise<Map<string, IntrospectionType>> => {
-      // Separate cached and missing types
+      console.log('📥 fetchMultipleTypes called with:', typenames);
+
+      // Separate cached and missing types using global cache
       const cachedTypes: string[] = [];
       const missingTypes: string[] = [];
 
       typenames.forEach((typename) => {
-        if (cache.types.has(typename)) {
+        if (globalCache.types.has(typename)) {
           cachedTypes.push(typename);
         } else {
           missingTypes.push(typename);
         }
+      });
+
+      console.log('📊 Type fetch request:', {
+        total: typenames.length,
+        cached: cachedTypes.length,
+        toFetch: missingTypes.length,
+        globalCacheSize: globalCache.types.size,
       });
 
       // Fetch missing types in parallel
@@ -127,9 +154,9 @@ export function useTypeFetcher(): UseTypeFetcherResult {
       // Build result map
       const resultMap = new Map<string, IntrospectionType>();
 
-      // Add cached types
+      // Add cached types from global cache
       cachedTypes.forEach((typename) => {
-        const type = cache.types.get(typename);
+        const type = globalCache.types.get(typename);
         if (type) {
           resultMap.set(typename, type);
         }
@@ -142,9 +169,16 @@ export function useTypeFetcher(): UseTypeFetcherResult {
         }
       });
 
+      console.log('✅ Type fetch complete:', {
+        returned: resultMap.size,
+        cached: cachedTypes.length,
+        fetched: fetchResults.filter((r) => r.type).length,
+        globalCacheSize: globalCache.types.size,
+      });
+
       return resultMap;
     },
-    [cache, fetchType]
+    [fetchType] // Only depends on fetchType, which is now stable
   );
 
   /**
@@ -152,17 +186,17 @@ export function useTypeFetcher(): UseTypeFetcherResult {
    * Useful for forcing a refresh
    */
   const clearCache = useCallback(() => {
-    setCache({
-      types: new Map(),
-      fetchedAt: new Map(),
-    });
-  }, [cache]);
+    console.log('🗑️ Clearing global type cache');
+    globalCache.types.clear();
+    globalCache.fetchedAt.clear();
+    notifyCacheChange();
+  }, []); // No dependencies - stable function reference
 
   return {
     fetchType,
     fetchMultipleTypes,
     getType,
     clearCache,
-    cacheSize: cache.types.size,
+    cacheSize: globalCache.types.size + cacheVersion * 0, // Include version to trigger re-renders
   };
 }

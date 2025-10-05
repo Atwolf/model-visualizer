@@ -58,8 +58,6 @@ function validateLoadedType(type: IntrospectionType): boolean {
 async function loadSingleType(
   typename: string
 ): Promise<TypeLoadResult | TypeLoadError> {
-  const startTime = Date.now();
-
   try {
     const data = await introspectType(typename);
 
