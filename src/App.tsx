@@ -7,7 +7,9 @@ import { buildGraphFromIntrospection, TransformOptions } from './lib/graph/graph
 import { GraphNode, GraphEdge } from './lib/graph/types';
 import { useInitialTypeLoad } from './hooks/useInitialTypeLoad';
 import { useTypeFetcher } from './hooks/useTypeFetcher';
-import { useTypeFilter } from './hooks/useTypeFilter';
+import { useAppTypeFilter } from './hooks/useAppTypeFilter';
+import { useTypeDiscovery } from './hooks/useTypeDiscovery';
+import { AppFilterPanel } from './components/AppFilterPanel/AppFilterPanel';
 import { IntrospectionType } from './lib/graphql/introspection';
 
 function App() {
@@ -17,8 +19,17 @@ function App() {
   // Type fetcher for dynamic loading
   const { fetchMultipleTypes } = useTypeFetcher();
 
-  // Type filter for showing only relevant types
-  const { config: filterConfig, isTypeAllowed } = useTypeFilter();
+  // Type discovery for app-based filtering
+  const { types: discoveredTypes, loading: typesDiscoveryLoading, error: typesDiscoveryError } = useTypeDiscovery();
+
+  // App-based type filtering
+  const {
+    config: filterConfig,
+    typeFilter,
+    toggleApp,
+    addAdditionalType,
+    removeAdditionalType,
+  } = useAppTypeFilter();
 
   const [depth, setDepth] = useState(2);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -47,9 +58,10 @@ function App() {
   // Stable transform options - memoized to prevent unnecessary re-renders
   const transformOptions = useMemo<TransformOptions>(() => ({
     maxDepth: depth,
-    includeScalars: false, // Filter out scalar fields by default
+    includeScalars: false,
     showFieldNodes: false,
-  }), [depth]);
+    typeFilter,
+  }), [depth, typeFilter]);
 
   // Build graph when selections or type data changes
   useEffect(() => {
@@ -67,20 +79,18 @@ function App() {
 
     // Build graph from introspection data with auto-fetch
     const buildGraph = async () => {
-      const options: TransformOptions = {
-        maxDepth: depth,
-        includeScalars: false, // Filter out scalar fields by default
-        typeFilter: isTypeAllowed, // Filter types based on patterns
-      };
-
       const { nodes, edges } = await buildGraphFromIntrospection(
         selectedTypes,
         typeData,
         transformOptions,
-        fetchMultipleTypes // Enable auto-fetch of referenced types
+        fetchMultipleTypes
       );
 
       if (!cancelled) {
+        console.log('[App] Graph built with app filtering:', {
+          nodesCreated: nodes.length,
+          edgesCreated: edges.length,
+        });
         setGraphData({ nodes, edges });
       }
     };
@@ -112,6 +122,13 @@ function App() {
         </Alert>
       )}
 
+      {/* Type discovery error */}
+      {typesDiscoveryError && !typesDiscoveryLoading && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          Type discovery failed. Using default filter settings. Error: {typesDiscoveryError}
+        </Alert>
+      )}
+
       {/* Main controls - disabled while loading */}
       <ControlPanel
         depth={depth}
@@ -120,6 +137,20 @@ function App() {
         selectedTypes={selectedTypes}
         onTypeSelect={handleTypeSelection}
       />
+
+      {/* App-based filtering panel */}
+      {!typesDiscoveryLoading && discoveredTypes.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <AppFilterPanel
+            enabledApps={filterConfig.enabledApps}
+            additionalTypes={filterConfig.additionalTypes}
+            availableTypes={discoveredTypes}
+            onToggleApp={toggleApp}
+            onAddType={addAdditionalType}
+            onRemoveType={removeAdditionalType}
+          />
+        </Box>
+      )}
 
       <Box sx={{ border: '1px solid #ddd', borderRadius: 2, overflow: 'hidden' }}>
         <GraphCanvas
