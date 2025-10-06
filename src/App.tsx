@@ -26,7 +26,6 @@ function App() {
   const {
     config: filterConfig,
     typeFilter,
-    toggleApp,
     addAdditionalType,
     removeAdditionalType,
   } = useAppTypeFilter();
@@ -138,16 +137,15 @@ function App() {
         onTypeSelect={handleTypeSelection}
       />
 
-      {/* App-based filtering panel */}
+      {/* Type filtering panel */}
       {!typesDiscoveryLoading && discoveredTypes.length > 0 && (
         <Box sx={{ mb: 3 }}>
           <AppFilterPanel
-            enabledApps={filterConfig.enabledApps}
             additionalTypes={filterConfig.additionalTypes}
             availableTypes={discoveredTypes}
-            onToggleApp={toggleApp}
             onAddType={addAdditionalType}
             onRemoveType={removeAdditionalType}
+            typeFilter={typeFilter}
           />
         </Box>
       )}

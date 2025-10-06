@@ -36,6 +36,18 @@ export const APP_CORE_TYPES: Record<NautobotApp, string[]> = {
   ],
 };
 
+/**
+ * Get all core types from all apps combined
+ * @returns Array of all core type names
+ */
+export function getAllCoreTypes(): string[] {
+  return [
+    ...APP_CORE_TYPES.DCIM,
+    ...APP_CORE_TYPES.IPAM,
+    ...APP_CORE_TYPES.CIRCUITS,
+  ];
+}
+
 export function categorizeType(typename: string): NautobotApp {
   const lower = typename.toLowerCase();
 
@@ -114,9 +126,9 @@ export function createDefaultAppFilterConfig(): AppFilterConfig {
     enabledApps: {
       DCIM: true,
       IPAM: true,
-      CIRCUITS: false,
+      CIRCUITS: true,
     },
-    additionalTypes: [],
+    additionalTypes: getAllCoreTypes(),
     enabled: true,
   };
 }
