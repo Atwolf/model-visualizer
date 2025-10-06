@@ -37,6 +37,7 @@ function createChildrenRecursive(
       type: 'custom',
       data: {
         label: childLabel,
+        typename: childLabel, // Mock typename
         depth: childDepth,
         isRoot: false,
       },
@@ -87,6 +88,7 @@ export function buildGraphFromRoots(
       type: 'custom',
       data: {
         label: typeName,
+        typename: typeName,
         depth: 0,
         isRoot: true,
       },

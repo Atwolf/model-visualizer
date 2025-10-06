@@ -76,11 +76,6 @@ export async function executeGraphQLQuery<T = any>(
 ): Promise<GraphQLResponse<T>> {
   const config = createClientConfig();
 
-  console.log('GraphQL client initialized:', { url: config.url });
-  console.log('GraphQL request:', {
-    query: query.length > 100 ? query.substring(0, 100) + '...' : query
-  });
-
   const request: GraphQLRequest = {
     query,
     variables: variables || {},
@@ -105,11 +100,6 @@ export async function executeGraphQLQuery<T = any>(
     }
 
     const result: GraphQLResponse<T> = await response.json();
-
-    console.log('GraphQL response:', {
-      hasData: !!result.data,
-      hasErrors: !!result.errors
-    });
 
     // Log errors if present
     if (result.errors) {
