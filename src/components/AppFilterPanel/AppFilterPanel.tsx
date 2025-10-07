@@ -72,8 +72,19 @@ export function AppFilterPanel({
   });
 
   return (
-    <Paper elevation={2} sx={{ p: 3 }}>
-      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 3 }}>
+    <Paper
+      elevation={3}
+      sx={{
+        p: 2.5,
+        minWidth: 380,
+        maxWidth: 450,
+        maxHeight: '85vh',
+        overflow: 'auto',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(10px)',
+      }}
+    >
+      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, mb: 2.5, fontSize: '1.1rem' }}>
         Type Filter
       </Typography>
 

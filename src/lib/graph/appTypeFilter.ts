@@ -107,17 +107,9 @@ export function createAppTypeFilter(
       return true;
     }
 
-    if (config.additionalTypes.includes(typename)) {
-      return true;
-    }
-
-    for (const [app, enabled] of Object.entries(config.enabledApps)) {
-      if (enabled && APP_CORE_TYPES[app as NautobotApp].includes(typename)) {
-        return true;
-      }
-    }
-
-    return false;
+    // Use additionalTypes as the single source of truth
+    // This allows users to explicitly add/remove types
+    return config.additionalTypes.includes(typename);
   };
 }
 

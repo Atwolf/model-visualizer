@@ -43,8 +43,17 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   }
 
   return (
-    <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
-      <Typography variant="h6" gutterBottom>
+    <Paper
+      elevation={3}
+      sx={{
+        p: 2.5,
+        minWidth: 320,
+        maxWidth: 380,
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(10px)',
+      }}
+    >
+      <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, fontSize: '1.1rem' }}>
         Graph Controls
       </Typography>
 
