@@ -4,23 +4,46 @@ import ReactFlow, {
   Background,
   useNodesState,
   useEdgesState,
+  Panel,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { CustomNode } from './CustomNode';
 import { GraphNode, GraphEdge } from '../../lib/graph/types';
 import { filterByDepth } from '../../lib/graph/depthFilter';
 import { calculateTreeLayout } from '../../lib/graph/treeLayout';
+import { GraphControlsPanel } from '../GraphControlsPanel/GraphControlsPanel';
 
 interface GraphCanvasProps {
   nodes: GraphNode[];
   edges: GraphEdge[];
   maxDepth: number;
+  // Control panel props
+  depth: number;
+  onDepthChange: (depth: number) => void;
+  // Root type selection - types that can be selected as graph starting points
+  rootTypes: string[];
+  selectedRootTypes: string[];
+  onRootTypeSelect: (types: string[]) => void;
+  // Type filtering - additional types to include during graph traversal
+  filterTypes: string[];
+  discoveredTypes: string[];
+  onAddFilterType: (typename: string) => void;
+  onRemoveFilterType: (typename: string) => void;
 }
 
 export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   nodes,
   edges,
-  maxDepth
+  maxDepth,
+  depth,
+  onDepthChange,
+  rootTypes,
+  selectedRootTypes,
+  onRootTypeSelect,
+  filterTypes,
+  discoveredTypes,
+  onAddFilterType,
+  onRemoveFilterType,
 }) => {
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState([]);
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState([]);
@@ -38,7 +61,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   }, [nodes, edges, maxDepth, setFlowNodes, setFlowEdges]);
 
   return (
-    <div style={{ width: '100%', height: '600px' }}>
+    <div style={{ width: '100%', height: '800px' }}>
       <ReactFlow
         nodes={flowNodes}
         edges={flowEdges}
@@ -50,6 +73,21 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       >
         <Background />
         <Controls />
+
+        {/* Combined controls panel */}
+        <Panel position="top-left" style={{ margin: 10 }}>
+          <GraphControlsPanel
+            rootTypes={rootTypes}
+            selectedRootTypes={selectedRootTypes}
+            onRootTypeSelect={onRootTypeSelect}
+            depth={depth}
+            onDepthChange={onDepthChange}
+            filterTypes={filterTypes}
+            discoveredTypes={discoveredTypes}
+            onAddFilterType={onAddFilterType}
+            onRemoveFilterType={onRemoveFilterType}
+          />
+        </Panel>
       </ReactFlow>
     </div>
   );

@@ -5,6 +5,7 @@ import {
   unwrapType,
 } from '../graphql/introspection';
 import { GraphNode, GraphEdge } from './types';
+import { applyTreeLayout } from './layout';
 
 // ============================================================================
 // Type Definitions
@@ -40,6 +41,24 @@ const MAX_TYPES_PER_DEPTH = 100;
 // ============================================================================
 
 /**
+ * Cleans typename for display by removing "Type" suffix
+ * Examples:
+ *   DeviceType -> Device
+ *   InterfaceType -> Interface
+ *   DeviceTypeType -> DeviceType (edge case)
+ *   Query -> Query (no change)
+ *
+ * @param typename - Original GraphQL type name
+ * @returns Cleaned display name
+ */
+function cleanTypenameForDisplay(typename: string): string {
+  if (typename.endsWith('Type')) {
+    return typename.slice(0, -4);
+  }
+  return typename;
+}
+
+/**
  * Generates unique node ID from typename, field, and depth
  * Format: typename:fieldName:depth or typename:root:0
  *
@@ -73,14 +92,16 @@ function createNode(
   isRoot: boolean
 ): GraphNode {
   const id = generateNodeId(typename, fieldName, depth);
-  const label = isRoot ? typename : (fieldName || typename);
+  // Clean the typename for display by removing "Type" suffix
+  const cleanedTypename = cleanTypenameForDisplay(typename);
+  const label = isRoot ? cleanedTypename : (fieldName || cleanedTypename);
 
   return {
     id,
     type: 'custom',
     data: {
       label,
-      typename,
+      typename, // Keep original typename for system logic
       depth,
       isRoot,
       fieldType: 'object', // Can be enhanced later to distinguish scalar/list
@@ -94,7 +115,7 @@ function createNode(
  *
  * @param parentId - Source node ID
  * @param childId - Target node ID
- * @param fieldName - Field name for edge label
+ * @param fieldName - Field name for edge label (stored but not displayed by default)
  * @returns GraphEdge ready for ReactFlow
  */
 function createEdge(
@@ -106,8 +127,8 @@ function createEdge(
     id: `${parentId}-[${fieldName}]-to-${childId}`,
     source: parentId,
     target: childId,
-    label: fieldName,
-    type: 'smoothstep',
+    // label: fieldName, // Hidden by default - uncomment to show edge labels
+    type: 'default', // Straight edges for tree layout
   };
 }
 
@@ -394,6 +415,12 @@ export async function buildGraphFromIntrospection(
   // ============================================================================
 
   const edges = createEdgesBetweenNodes(nodes, allTypeData, options);
+
+  // ============================================================================
+  // PASS 3: Apply tree layout to position nodes
+  // ============================================================================
+
+  applyTreeLayout(nodes);
 
   const result: GraphTransformResult = {
     nodes,
