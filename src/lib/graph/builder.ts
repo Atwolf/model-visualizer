@@ -40,6 +40,7 @@ function createChildrenRecursive(
         typename: childLabel, // Mock typename
         depth: childDepth,
         isRoot: false,
+        isPrimaryModel: false, // Mock nodes are not primary models
       },
       position: { x: 0, y: 0 }, // Will be calculated by layout
     });
@@ -91,6 +92,7 @@ export function buildGraphFromRoots(
         typename: typeName,
         depth: 0,
         isRoot: true,
+        isPrimaryModel: false, // Mock nodes are not primary models
       },
       position: { x: 0, y: 0 }, // Will be calculated by layout
     });

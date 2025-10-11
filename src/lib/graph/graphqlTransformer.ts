@@ -16,6 +16,7 @@ export interface TransformOptions {
   includeScalars?: boolean; // Default: false (filter out scalar fields)
   typeFilter?: (typename: string) => boolean;
   showFieldNodes?: boolean;
+  primaryModelChecker?: (typename: string) => boolean;
 }
 
 export interface GraphTransformResult {
@@ -83,18 +84,23 @@ function generateNodeId(
  * @param fieldName - Field name (null for root nodes)
  * @param depth - Depth in graph
  * @param isRoot - Whether this is a root node
+ * @param primaryModelChecker - Optional function to check if type is a primary model
  * @returns GraphNode ready for ReactFlow
  */
 function createNode(
   typename: string,
   fieldName: string | null,
   depth: number,
-  isRoot: boolean
+  isRoot: boolean,
+  primaryModelChecker?: (typename: string) => boolean
 ): GraphNode {
   const id = generateNodeId(typename, fieldName, depth);
   // Clean the typename for display by removing "Type" suffix
   const cleanedTypename = cleanTypenameForDisplay(typename);
   const label = isRoot ? cleanedTypename : (fieldName || cleanedTypename);
+
+  // Check if this type corresponds to a primary Nautobot model
+  const isPrimaryModel = primaryModelChecker ? primaryModelChecker(typename) : false;
 
   return {
     id,
@@ -105,6 +111,7 @@ function createNode(
       depth,
       isRoot,
       fieldType: 'object', // Can be enhanced later to distinguish scalar/list
+      isPrimaryModel,
     },
     position: { x: 0, y: 0 }, // Will be calculated by layout algorithm
   };
@@ -212,7 +219,7 @@ function createNodeForType(
 
   // Create node for this type
   const isRoot = currentDepth === 0;
-  const node = createNode(typename, null, currentDepth, isRoot);
+  const node = createNode(typename, null, currentDepth, isRoot, options.primaryModelChecker);
   nodes.push(node);
 
   // Update stats
