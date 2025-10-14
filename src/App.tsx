@@ -1,132 +1,221 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Container, Box, Alert, CircularProgress } from '@mui/material';
 import { GraphCanvas } from './components/GraphCanvas/GraphCanvas';
 import { GraphQLTest } from './components/GraphQLTest';
 import { buildGraphFromIntrospection, TransformOptions } from './lib/graph/graphqlTransformer';
 import { GraphNode, GraphEdge } from './lib/graph/types';
-import { useInitialTypeLoad } from './hooks/useInitialTypeLoad';
 import { useTypeFetcher } from './hooks/useTypeFetcher';
-import { useAppTypeFilter } from './hooks/useAppTypeFilter';
 import { useTypeDiscovery } from './hooks/useTypeDiscovery';
+import { useGraphTypeOptions } from './hooks/useGraphTypeOptions';
 import { IntrospectionType } from './lib/graphql/introspection';
 
 function App() {
-  // Load default types from GraphQL
-  const { types: loadedTypes, loading: typesLoading, error: typeLoadError } = useInitialTypeLoad();
-
-  // Type fetcher for dynamic loading
-  const { fetchMultipleTypes } = useTypeFetcher();
-
-  // Type discovery for app-based filtering
+  const { fetchType, fetchMultipleTypes } = useTypeFetcher();
   const { types: discoveredTypes, loading: typesDiscoveryLoading, error: typesDiscoveryError } = useTypeDiscovery();
-
-  // App-based type filtering
-  const {
-    config: filterConfig,
-    typeFilter,
-    addAdditionalType,
-    removeAdditionalType,
-  } = useAppTypeFilter();
+  const { filterTypes: availableFilterTypes, rootTypes } = useGraphTypeOptions(discoveredTypes);
 
   const [depth, setDepth] = useState(2);
-  const [selectedRootTypes, setSelectedRootTypes] = useState<string[]>([]);
+  const [selectedRootType, setSelectedRootType] = useState<string | null>(null);
+  const [selectedFilterTypes, setSelectedFilterTypes] = useState<string[]>([]);
   const [typeData, setTypeData] = useState<Map<string, IntrospectionType>>(new Map());
-  const [graphData, setGraphData] = useState<{
-    nodes: GraphNode[];
-    edges: GraphEdge[];
-  }>({ nodes: [], edges: [] });
+  const [graphData, setGraphData] = useState<{ nodes: GraphNode[]; edges: GraphEdge[] }>({
+    nodes: [],
+    edges: [],
+  });
+  const [loadingRootType, setLoadingRootType] = useState(false);
+  const [rootLoadError, setRootLoadError] = useState<string | null>(null);
 
-  // Get available root types from loaded types - these are the types users can select as graph starting points
-  const rootTypes = Array.from(loadedTypes.keys());
+  const filterInitRef = useRef(false);
+  const rootInitRef = useRef(false);
 
-  // Handle root type selection - fetch introspection data for selected types
-  const handleRootTypeSelection = async (newTypes: string[]) => {
-    setSelectedRootTypes(newTypes);
-
-    // Fetch introspection data for newly selected types
-    if (newTypes.length > 0) {
-      const fetchedTypes = await fetchMultipleTypes(newTypes);
-      setTypeData(fetchedTypes);
-    } else {
-      setTypeData(new Map());
-    }
-  };
-
-  // Stable transform options - memoized to prevent unnecessary re-renders
-  const transformOptions = useMemo<TransformOptions>(() => ({
-    maxDepth: depth,
-    includeScalars: false,
-    showFieldNodes: false,
-    typeFilter,
-  }), [depth, typeFilter]);
-
-  // Build graph when root type selections or type data changes
   useEffect(() => {
-    if (selectedRootTypes.length === 0) {
+    if (availableFilterTypes.length === 0) {
+      filterInitRef.current = false;
+      setSelectedFilterTypes([]);
+      return;
+    }
+
+    const availableSet = new Set(availableFilterTypes);
+
+    setSelectedFilterTypes(prev => {
+      const filtered = prev.filter(type => availableSet.has(type));
+
+      if (!filterInitRef.current) {
+        filterInitRef.current = true;
+        return availableFilterTypes;
+      }
+
+      if (filtered.length !== prev.length) {
+        return filtered;
+      }
+
+      return prev;
+    });
+  }, [availableFilterTypes]);
+
+  useEffect(() => {
+    if (rootTypes.length === 0) {
+      rootInitRef.current = false;
+      setSelectedRootType(null);
+      return;
+    }
+
+    setSelectedRootType(prev => {
+      if (prev && rootTypes.includes(prev)) {
+        return prev;
+      }
+
+      if (!rootInitRef.current) {
+        rootInitRef.current = true;
+        return rootTypes[0];
+      }
+
+      return rootTypes[0];
+    });
+  }, [rootTypes]);
+
+  useEffect(() => {
+    if (!selectedRootType) {
+      setTypeData(new Map());
+      setGraphData({ nodes: [], edges: [] });
+      setRootLoadError(null);
+      setLoadingRootType(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingRootType(true);
+    setRootLoadError(null);
+    setTypeData(new Map());
+    setGraphData({ nodes: [], edges: [] });
+
+    const loadRootType = async () => {
+      const result = await fetchType(selectedRootType);
+
+      if (cancelled) {
+        return;
+      }
+
+      if (!result.type) {
+        setRootLoadError(result.error ?? `Failed to load ${selectedRootType}`);
+        setLoadingRootType(false);
+        return;
+      }
+
+      const map = new Map<string, IntrospectionType>();
+      map.set(result.type.name, result.type);
+      setTypeData(map);
+      setLoadingRootType(false);
+    };
+
+    loadRootType().catch(error => {
+      if (cancelled) {
+        return;
+      }
+      setRootLoadError(error instanceof Error ? error.message : String(error));
+      setLoadingRootType(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRootType, fetchType]);
+
+  const filterPredicate = useMemo(() => {
+    if (selectedFilterTypes.length === 0) {
+      return () => false;
+    }
+
+    if (selectedFilterTypes.length === availableFilterTypes.length) {
+      return undefined;
+    }
+
+    const allowed = new Set(selectedFilterTypes);
+    return (typename: string) => allowed.has(typename);
+  }, [selectedFilterTypes, availableFilterTypes]);
+
+  const transformOptions = useMemo<TransformOptions>(() => {
+    const options: TransformOptions = {
+      maxDepth: depth,
+      includeScalars: false,
+      showFieldNodes: false,
+    };
+
+    if (filterPredicate) {
+      options.typeFilter = filterPredicate;
+    }
+
+    return options;
+  }, [depth, filterPredicate]);
+
+  useEffect(() => {
+    if (!selectedRootType) {
       setGraphData({ nodes: [], edges: [] });
       return;
     }
 
-    // Wait for type data to be loaded
-    if (typeData.size === 0) {
+    if (!typeData.has(selectedRootType)) {
       return;
     }
 
     let cancelled = false;
 
-    // Build graph from introspection data with auto-fetch
     const buildGraph = async () => {
       const { nodes, edges } = await buildGraphFromIntrospection(
-        selectedRootTypes,
+        [selectedRootType],
         typeData,
         transformOptions,
         fetchMultipleTypes
       );
 
       if (!cancelled) {
-        console.log('[App] Graph built with app filtering:', {
-          nodesCreated: nodes.length,
-          edgesCreated: edges.length,
-        });
         setGraphData({ nodes, edges });
       }
     };
 
-    buildGraph();
+    buildGraph().catch(error => {
+      if (!cancelled) {
+        console.error('[App] Failed to build graph:', error);
+      }
+    });
 
-    // Cleanup: cancel if component unmounts or dependencies change
     return () => {
       cancelled = true;
     };
-  }, [selectedRootTypes, typeData, transformOptions, fetchMultipleTypes]);
+  }, [selectedRootType, typeData, transformOptions, fetchMultipleTypes]);
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
       <GraphQLTest />
 
-      {/* Loading state */}
-      {typesLoading && (
+      {typesDiscoveryLoading && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
           <CircularProgress size={24} />
-          <Alert severity="info">Loading types from GraphQL schema...</Alert>
+          <Alert severity="info">Discovering available GraphQL types...</Alert>
         </Box>
       )}
 
-      {/* Error state */}
-      {typeLoadError && !typesLoading && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          Failed to load types: {typeLoadError}
-        </Alert>
-      )}
-
-      {/* Type discovery error */}
       {typesDiscoveryError && !typesDiscoveryLoading && (
         <Alert severity="warning" sx={{ mb: 3 }}>
-          Type discovery failed. Using default filter settings. Error: {typesDiscoveryError}
+          Type discovery failed. Filtering options may be incomplete. Error: {typesDiscoveryError}
         </Alert>
       )}
 
-      {/* Graph with integrated control panel */}
+      {loadingRootType && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+          <CircularProgress size={24} />
+          <Alert severity="info">
+            Loading introspection data for {selectedRootType ?? 'selected root type'}...
+          </Alert>
+        </Box>
+      )}
+
+      {rootLoadError && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {rootLoadError}
+        </Alert>
+      )}
+
       <Box sx={{ border: '1px solid #ddd', borderRadius: 2, overflow: 'hidden' }}>
         <GraphCanvas
           nodes={graphData.nodes}
@@ -135,12 +224,11 @@ function App() {
           depth={depth}
           onDepthChange={setDepth}
           rootTypes={rootTypes}
-          selectedRootTypes={selectedRootTypes}
-          onRootTypeSelect={handleRootTypeSelection}
-          filterTypes={filterConfig.additionalTypes}
-          discoveredTypes={discoveredTypes}
-          onAddFilterType={addAdditionalType}
-          onRemoveFilterType={removeAdditionalType}
+          selectedRootType={selectedRootType}
+          onRootTypeSelect={setSelectedRootType}
+          availableFilterTypes={availableFilterTypes}
+          selectedFilterTypes={selectedFilterTypes}
+          onFilterChange={setSelectedFilterTypes}
         />
       </Box>
     </Container>

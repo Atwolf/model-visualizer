@@ -28,5 +28,3 @@ export function filterByDepth(
 
   return { filteredNodes, filteredEdges };
 }
-
-// TODO: move this to typeFilter.ts and combine with the appTypeFilter
