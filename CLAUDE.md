@@ -36,17 +36,18 @@ In development, the Vite dev server uses a proxy to avoid CORS issues (configure
 
 The application uses distinct terms to differentiate between two key concepts:
 
-- **Root Types** (`rootTypes`, `selectedRootTypes`) - Types that can be selected as graph starting points. These are the entry nodes from which the graph visualization begins.
-- **Filter Types** (`filterTypes`) - Additional types that control node visibility during graph traversal. These types are included in the graph even if they don't match the app-based filtering rules.
+- **Root Type** (`rootTypes`, `selectedRootType`) - GraphQL object types that can seed the visualization. Options are discovered from the schema and cross-referenced with `model_kinds.json`.
+- **Filter Types** (`selectedFilterTypes`) - Allowlist of additional GraphQL types that should be traversed when expanding the graph.
 
 ### Core Data Flow
 
 The application visualizes GraphQL schema relationships as an interactive graph:
 
-1. **Type Discovery** (`useInitialTypeLoad`, `useTypeDiscovery`) - Fetches available GraphQL types from Nautobot introspection
-2. **Type Filtering** (`useAppTypeFilter`) - Manages filter types by Nautobot application category (DCIM, IPAM, CIRCUITS)
-3. **Graph Building** (`graphqlTransformer.ts`) - Transforms introspection data into graph nodes/edges using a multi-pass algorithm
-4. **Rendering** (`GraphCanvas.tsx`) - Renders the graph using ReactFlow with custom nodes and tree layout
+1. **Type Discovery** (`useTypeDiscovery`) - Loads all object types from the Nautobot GraphQL schema.
+   - `App.tsx` cross-references the discovered types with `model_kinds.json` (limited to `dcim.*`, `circuits.*`, `ipam.*`) to build the root type picker.
+   - The same discovery result seeds the selectable filter list and default filter set.
+2. **Graph Building** (`graphqlTransformer.ts`) - Transforms introspection data into graph nodes/edges using a multi-pass algorithm. Missing types are fetched lazily through `useTypeFetcher`.
+3. **Rendering** (`GraphCanvas.tsx`) - Renders the graph using ReactFlow with custom nodes and tree layout.
 
 ### Graph Transformation Pipeline
 
@@ -70,26 +71,24 @@ The graph builder (`buildGraphFromIntrospection`) uses a **three-pass algorithm*
 
 The app uses a **hooks-based architecture** with specialized hooks:
 
-- `useAppTypeFilter` - Manages app-based filtering state (DCIM/IPAM/CIRCUITS toggles + filter types)
-- `useTypeFetcher` - Provides function to fetch introspection data for specific types
-- `useTypeDiscovery` - Discovers all available types for autocomplete
-- `useInitialTypeLoad` - Loads initial set of root types on app mount
+- `useTypeFetcher` - Fetches and caches introspection data for individual types.
+- `useTypeDiscovery` - Discovers all available object types (backed by `useAsyncResource` for loading state).
+- `useGraphTypeOptions` - Derives the filter list and primary root candidates by combining discovered GraphQL types with `model_kinds.json`.
+- `useAsyncResource` - Shared async state manager used by discovery and other potential loaders.
 
-**Critical**: The `transformOptions` object in `App.tsx` is memoized with `useMemo` to prevent unnecessary graph rebuilds. Changes to `typeFilter` will trigger a complete graph rebuild.
+**Critical**: The `transformOptions` object in `App.tsx` is memoized with `useMemo` to prevent unnecessary graph rebuilds. Changes to `selectedFilterTypes` or `depth` will trigger a complete graph rebuild through the memoised `typeFilter` predicate.
 
 **State Flow**:
-1. User selects root types from `rootTypes` → stored in `selectedRootTypes`
-2. User adds filter types from `discoveredTypes` → stored in `filterTypes`
-3. Graph builds from `selectedRootTypes`, respecting `filterTypes` during traversal
+1. `useTypeDiscovery` resolves available types. `App.tsx` maps them to root candidates using `model_kinds.json` and seeds default filter selections.
+2. The user chooses a single root type (`selectedRootType`). `useTypeFetcher` introspects that type and stores it in `typeData`.
+3. Graph construction runs with the current depth and filter selections, producing nodes/edges rendered by `GraphCanvas`.
 
 ### Type Filtering System
 
 Two filtering mechanisms work together:
 
-1. **App-based filtering** (`appTypeFilter.ts`) - Categorizes types into Nautobot apps (DCIM, IPAM, CIRCUITS) and filters based on enabled apps + filter types. Filter types allow users to selectively include types that would otherwise be excluded.
-2. **Depth filtering** (`depthFilter.ts`) - Filters graph nodes by depth level for visualization
-
-The `typeFilter` function from `useAppTypeFilter` is passed into `graphqlTransformer` via `TransformOptions`, affecting which types are included during graph construction. This filter respects both app categories and the user's selected filter types.
+1. **Explicit type allowlist** - `selectedFilterTypes` is converted into a predicate passed through `TransformOptions.typeFilter`, restricting both edge creation and auto-fetch to the chosen GraphQL types.
+2. **Depth filtering** (`depthFilter.ts`) - Filters graph nodes by depth level for visualization.
 
 ### ReactFlow Integration
 
@@ -102,7 +101,7 @@ The `typeFilter` function from `useAppTypeFilter` is passed into `graphqlTransfo
 
 - `client.ts` - Low-level fetch wrapper with auth headers
 - `introspection.ts` - GraphQL introspection query builder and type definitions
-- `typeLoader.ts` - High-level API for loading types by name
+- `useTypeFetcher` - Provides cached introspection queries when the graph needs additional schema information.
 
 The client automatically handles environment variables and switches between dev proxy and production direct connection.
 
@@ -118,8 +117,7 @@ The client automatically handles environment variables and switches between dev 
 When modifying filtering logic or state management:
 
 - Ensure memoization of filter functions and transform options with proper dependencies
-- Changes to `typeFilter` in `transformOptions` will trigger the `useEffect` in `App.tsx` which rebuilds the entire graph
+- Changes to `selectedFilterTypes` (and the derived `typeFilter` predicate) trigger the `useEffect` in `App.tsx`, rebuilding the entire graph
 - The graph rebuild happens in `buildGraphFromIntrospection` which is async and includes cleanup logic for cancelled operations
-- Changes to `selectedRootTypes` will trigger graph rebuild from the new root nodes
-- Changes to `filterTypes` (via `typeFilter`) will trigger graph rebuild with updated filtering rules
+- Changes to `selectedRootType` will trigger graph rebuild from the new root node
 - `GraphCanvas` has its own `useEffect` that filters and layouts nodes when props change

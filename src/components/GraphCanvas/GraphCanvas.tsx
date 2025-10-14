@@ -17,18 +17,14 @@ interface GraphCanvasProps {
   nodes: GraphNode[];
   edges: GraphEdge[];
   maxDepth: number;
-  // Control panel props
   depth: number;
   onDepthChange: (depth: number) => void;
-  // Root type selection - types that can be selected as graph starting points
   rootTypes: string[];
-  selectedRootTypes: string[];
-  onRootTypeSelect: (types: string[]) => void;
-  // Type filtering - additional types to include during graph traversal
-  filterTypes: string[];
-  discoveredTypes: string[];
-  onAddFilterType: (typename: string) => void;
-  onRemoveFilterType: (typename: string) => void;
+  selectedRootType: string | null;
+  onRootTypeSelect: (type: string | null) => void;
+  availableFilterTypes: string[];
+  selectedFilterTypes: string[];
+  onFilterChange: (types: string[]) => void;
 }
 
 export const GraphCanvas: React.FC<GraphCanvasProps> = ({
@@ -38,12 +34,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   depth,
   onDepthChange,
   rootTypes,
-  selectedRootTypes,
+  selectedRootType,
   onRootTypeSelect,
-  filterTypes,
-  discoveredTypes,
-  onAddFilterType,
-  onRemoveFilterType,
+  availableFilterTypes,
+  selectedFilterTypes,
+  onFilterChange,
 }) => {
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState([]);
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState([]);
@@ -78,14 +73,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         <Panel position="top-left" style={{ margin: 10 }}>
           <GraphControlsPanel
             rootTypes={rootTypes}
-            selectedRootTypes={selectedRootTypes}
+            selectedRootType={selectedRootType}
             onRootTypeSelect={onRootTypeSelect}
             depth={depth}
             onDepthChange={onDepthChange}
-            filterTypes={filterTypes}
-            discoveredTypes={discoveredTypes}
-            onAddFilterType={onAddFilterType}
-            onRemoveFilterType={onRemoveFilterType}
+            availableFilterTypes={availableFilterTypes}
+            selectedFilterTypes={selectedFilterTypes}
+            onFilterChange={onFilterChange}
           />
         </Panel>
       </ReactFlow>

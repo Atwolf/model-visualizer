@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { introspectType, IntrospectionType } from '../lib/graphql/introspection';
+import { getErrorMessage } from '../lib/utils/errors';
 
 interface TypeCache {
   types: Map<string, IntrospectionType>;
@@ -81,8 +82,7 @@ export function useTypeFetcher(): UseTypeFetcherResult {
           fromCache: false,
         };
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : 'Unknown error';
+        const errorMessage = getErrorMessage(error);
         console.error('Failed to fetch type:', { typename, error: errorMessage });
 
         return {
