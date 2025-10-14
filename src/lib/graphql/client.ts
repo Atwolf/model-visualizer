@@ -146,55 +146,52 @@ export async function executeGraphQLQuery<T = any>(
  * Content types represent the Django models available in Nautobot.
  * Used to identify which GraphQL types correspond to primary models.
  *
- * @returns Array of all content types with pagination handling
+ * Filters by primary Nautobot app labels (dcim, ipam, circuits) to reduce
+ * the result set and avoid pagination issues.
+ *
+ * @returns Array of content types from primary Nautobot apps
  * @throws Error if network request fails or authentication fails
  */
 export async function executeContentTypesQuery(): Promise<ContentType[]> {
   const config = createClientConfig();
-  const allContentTypes: ContentType[] = [];
-  let nextUrl: string | null = config.url + 'extras/content-types/?limit=1000';
+
+  // Filter by primary Nautobot apps to reduce result set
+  // This avoids API pagination limits and returns only relevant models
+  const appLabels = ['dcim', 'ipam', 'circuits'];
+  const appFilter = appLabels.map(app => `app_label=${app}`).join('&');
+  const url = config.url + `extras/content-types/?${appFilter}&limit=1000`;
 
   try {
-    // Handle pagination - fetch all pages
-    while (nextUrl) {
-      const response = await fetch(nextUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Token ${config.apiToken}`,
-        },
-      });
+    console.log('[Content Types] Fetching from:', url);
 
-      // Handle HTTP errors
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          throw new Error(`Authentication failed: ${response.status} ${response.statusText}`);
-        }
-        throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
-      }
-
-      const result: ContentTypesResponse = await response.json();
-      allContentTypes.push(...result.results);
-
-      // Update nextUrl for pagination
-      nextUrl = result.next;
-
-      console.log('Content types fetched:', {
-        currentBatch: result.results.length,
-        totalSoFar: allContentTypes.length,
-        hasMore: !!result.next,
-      });
-    }
-
-    console.log('All content types loaded:', {
-      total: allContentTypes.length,
-      sampleTypes: allContentTypes.slice(0, 5).map(ct => `${ct.app_label}.${ct.model}`),
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Token ${config.apiToken}`,
+      },
     });
 
-    return allContentTypes;
+    // Handle HTTP errors
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        throw new Error(`Authentication failed: ${response.status} ${response.statusText}`);
+      }
+      throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
+    }
+
+    const result: ContentTypesResponse = await response.json();
+    const contentTypes = result.results;
+
+    console.log('[Content Types] Loaded successfully:', {
+      total: contentTypes.length,
+      sampleTypes: contentTypes.slice(0, 5).map(ct => `${ct.app_label}.${ct.model}`),
+    });
+
+    return contentTypes;
   } catch (error) {
     if (error instanceof Error) {
-      console.error('Content types request failed:', { error: error.message });
+      console.error('[Content Types] Request failed:', { error: error.message });
       throw error;
     }
     throw new Error('Unknown error occurred during content types request');
