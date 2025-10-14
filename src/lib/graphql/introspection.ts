@@ -204,3 +204,66 @@ export function isRelationshipField(field: IntrospectionField): boolean {
 
   return isObjectType && isNotScalar;
 }
+
+// ============================================================================
+// Type Discovery
+// ============================================================================
+
+export const DISCOVER_TYPES_QUERY = `
+  query DiscoverTypes {
+    __schema {
+      types {
+        name
+        kind
+        description
+      }
+    }
+  }
+`;
+
+interface SchemaType {
+  name: string;
+  kind: string;
+  description?: string;
+}
+
+interface DiscoverTypesResult {
+  __schema: {
+    types: SchemaType[];
+  };
+}
+
+export async function discoverAllTypes(): Promise<string[]> {
+  console.log('[Type Discovery] Starting schema introspection...');
+
+  const response = await executeGraphQLQuery<DiscoverTypesResult>(
+    DISCOVER_TYPES_QUERY,
+    {}
+  );
+
+  if (response.errors) {
+    const errorMessages = response.errors.map(e => e.message).join(', ');
+    console.error('[Type Discovery] Failed:', errorMessages);
+    throw new Error(`Type discovery failed: ${errorMessages}`);
+  }
+
+  if (!response.data?.__schema?.types) {
+    console.error('[Type Discovery] Invalid response structure');
+    throw new Error('Invalid schema introspection response');
+  }
+
+  const objectTypes = response.data.__schema.types
+    .filter(type =>
+      type.kind === 'OBJECT' &&
+      !type.name.startsWith('__')
+    )
+    .map(type => type.name);
+
+  console.log('[Type Discovery] Complete:', {
+    totalTypes: response.data.__schema.types.length,
+    objectTypes: objectTypes.length,
+    sampleTypes: objectTypes.slice(0, 10),
+  });
+
+  return objectTypes;
+}

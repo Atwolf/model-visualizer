@@ -1,0 +1,285 @@
+import { useState } from 'react';
+import {
+  Box,
+  Autocomplete,
+  TextField,
+  Slider,
+  Chip,
+  Divider,
+  IconButton,
+  Collapse,
+  Paper,
+  Typography,
+} from '@mui/material';
+import {
+  Close as CloseIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+} from '@mui/icons-material';
+import { categorizeType, NautobotApp } from '../../lib/graph/appTypeFilter';
+
+interface GraphControlsPanelProps {
+  // Root type selection - types that can be selected as graph starting points
+  rootTypes: string[];
+  selectedRootTypes: string[];
+  onRootTypeSelect: (types: string[]) => void;
+
+  // Depth control
+  depth: number;
+  onDepthChange: (depth: number) => void;
+
+  // Type filtering - additional types to include during graph traversal
+  filterTypes: string[];
+  discoveredTypes: string[];
+  onAddFilterType: (typename: string) => void;
+  onRemoveFilterType: (typename: string) => void;
+}
+
+const APP_COLORS: Record<NautobotApp, string> = {
+  DCIM: '#1976d2',
+  IPAM: '#2e7d32',
+  CIRCUITS: '#ed6c02',
+};
+
+export function GraphControlsPanel({
+  rootTypes,
+  selectedRootTypes,
+  onRootTypeSelect,
+  depth,
+  onDepthChange,
+  filterTypes,
+  discoveredTypes,
+  onAddFilterType,
+  onRemoveFilterType,
+}: GraphControlsPanelProps): JSX.Element {
+  const [filterExpanded, setFilterExpanded] = useState(false);
+
+  // Organize filter types by app
+  const typesByApp: Record<NautobotApp, string[]> = {
+    DCIM: [],
+    IPAM: [],
+    CIRCUITS: [],
+  };
+
+  filterTypes.forEach(typename => {
+    const app = categorizeType(typename);
+    typesByApp[app].push(typename);
+  });
+
+  return (
+    <Paper
+      elevation={4}
+      sx={{
+        width: 360,
+        maxHeight: '90vh',
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        backgroundColor: 'rgba(255, 255, 255, 0.97)',
+        backdropFilter: 'blur(12px)',
+        border: '1px solid',
+        borderColor: 'divider',
+      }}
+    >
+      {/* Main Controls - Always Visible */}
+      <Box sx={{ p: 2, pb: 1.5 }}>
+        {/* Root Types - Starting points for graph visualization */}
+        <Autocomplete
+          multiple
+          size="small"
+          options={rootTypes}
+          value={selectedRootTypes}
+          onChange={(_, newValue) => onRootTypeSelect(newValue)}
+          disabled={rootTypes.length === 0}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Root Types"
+              placeholder="Select types..."
+              size="small"
+            />
+          )}
+          renderTags={(value, getTagProps) =>
+            value.map((option, index) => (
+              <Chip
+                label={option}
+                {...getTagProps({ index })}
+                size="small"
+                color="primary"
+                sx={{ height: 24 }}
+                key={option}
+              />
+            ))
+          }
+          sx={{ mb: 2 }}
+        />
+
+        {/* Depth Slider */}
+        <Box sx={{ px: 1 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+              Depth
+            </Typography>
+            <Typography variant="caption" sx={{ fontWeight: 600, color: 'primary.main' }}>
+              {depth}
+            </Typography>
+          </Box>
+          <Slider
+            value={depth}
+            onChange={(_, value) => onDepthChange(value as number)}
+            min={1}
+            max={7}
+            step={1}
+            marks
+            size="small"
+            sx={{
+              '& .MuiSlider-mark': {
+                height: 4,
+                width: 1,
+              },
+            }}
+          />
+        </Box>
+      </Box>
+
+      {/* Type Filter Section - Collapsible */}
+      {discoveredTypes.length > 0 && (
+        <>
+          <Divider />
+          <Box>
+            {/* Filter Header */}
+            <Box
+              onClick={() => setFilterExpanded(!filterExpanded)}
+              sx={{
+                px: 2,
+                py: 1.5,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                cursor: 'pointer',
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                },
+              }}
+            >
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                Type Filter ({filterTypes.length})
+              </Typography>
+              <IconButton size="small">
+                {filterExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+              </IconButton>
+            </Box>
+
+            {/* Filter Content */}
+            <Collapse in={filterExpanded}>
+              <Box sx={{ px: 2, pb: 2, maxHeight: '50vh', overflow: 'auto' }}>
+                {/* Add Types Autocomplete */}
+                <Autocomplete
+                  size="small"
+                  options={discoveredTypes.sort((a, b) => {
+                    const appA = categorizeType(a);
+                    const appB = categorizeType(b);
+                    if (appA !== appB) {
+                      const order = { DCIM: 0, IPAM: 1, CIRCUITS: 2 };
+                      return order[appA] - order[appB];
+                    }
+                    return a.localeCompare(b);
+                  })}
+                  value={null}
+                  onChange={(_, value) => value && onAddFilterType(value)}
+                  groupBy={(option) => categorizeType(option)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder="Add type..."
+                      size="small"
+                    />
+                  )}
+                  renderOption={(props, option) => {
+                    const app = categorizeType(option);
+                    const isSelected = filterTypes.includes(option);
+
+                    return (
+                      <Box
+                        component="li"
+                        {...props}
+                        key={option}
+                        sx={{
+                          fontSize: '0.875rem',
+                          py: 0.5,
+                          backgroundColor: isSelected ? 'action.selected' : 'transparent',
+                        }}
+                      >
+                        <Chip
+                          label={app}
+                          size="small"
+                          sx={{
+                            height: 20,
+                            fontSize: '0.7rem',
+                            backgroundColor: APP_COLORS[app],
+                            color: 'white',
+                            mr: 1,
+                            minWidth: 60,
+                          }}
+                        />
+                        {option}
+                      </Box>
+                    );
+                  }}
+                  sx={{ mb: 2 }}
+                />
+
+                {/* Selected Types by Category */}
+                {(['DCIM', 'IPAM', 'CIRCUITS'] as NautobotApp[]).map((app) => {
+                  const types = typesByApp[app];
+                  if (types.length === 0) return null;
+
+                  return (
+                    <Box key={app} sx={{ mb: 1.5 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: APP_COLORS[app],
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          fontSize: '0.7rem',
+                          letterSpacing: 0.5,
+                        }}
+                      >
+                        {app} ({types.length})
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                        {types.map((typename) => (
+                          <Chip
+                            key={typename}
+                            label={typename}
+                            onDelete={() => onRemoveFilterType(typename)}
+                            deleteIcon={<CloseIcon />}
+                            size="small"
+                            sx={{
+                              height: 24,
+                              fontSize: '0.75rem',
+                              backgroundColor: APP_COLORS[app],
+                              color: 'white',
+                              '& .MuiChip-deleteIcon': {
+                                color: 'rgba(255, 255, 255, 0.7)',
+                                fontSize: '1rem',
+                                '&:hover': {
+                                  color: 'white',
+                                },
+                              },
+                            }}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Collapse>
+          </Box>
+        </>
+      )}
+    </Paper>
+  );
+}

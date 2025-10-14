@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Container, Box, Alert, CircularProgress } from '@mui/material';
-import { ControlPanel } from './components/ControlPanel/ControlPanel';
 import { GraphCanvas } from './components/GraphCanvas/GraphCanvas';
 import { GraphQLTest } from './components/GraphQLTest';
 import { buildGraphFromIntrospection, TransformOptions } from './lib/graph/graphqlTransformer';
 import { GraphNode, GraphEdge } from './lib/graph/types';
 import { useInitialTypeLoad } from './hooks/useInitialTypeLoad';
 import { useTypeFetcher } from './hooks/useTypeFetcher';
+import { useAppTypeFilter } from './hooks/useAppTypeFilter';
+import { useTypeDiscovery } from './hooks/useTypeDiscovery';
 import { IntrospectionType } from './lib/graphql/introspection';
 
 function App() {
@@ -16,20 +17,31 @@ function App() {
   // Type fetcher for dynamic loading
   const { fetchMultipleTypes } = useTypeFetcher();
 
+  // Type discovery for app-based filtering
+  const { types: discoveredTypes, loading: typesDiscoveryLoading, error: typesDiscoveryError } = useTypeDiscovery();
+
+  // App-based type filtering
+  const {
+    config: filterConfig,
+    typeFilter,
+    addAdditionalType,
+    removeAdditionalType,
+  } = useAppTypeFilter();
+
   const [depth, setDepth] = useState(2);
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [selectedRootTypes, setSelectedRootTypes] = useState<string[]>([]);
   const [typeData, setTypeData] = useState<Map<string, IntrospectionType>>(new Map());
   const [graphData, setGraphData] = useState<{
     nodes: GraphNode[];
     edges: GraphEdge[];
   }>({ nodes: [], edges: [] });
 
-  // Get available types from loaded types
-  const availableTypes = Array.from(loadedTypes.keys());
+  // Get available root types from loaded types - these are the types users can select as graph starting points
+  const rootTypes = Array.from(loadedTypes.keys());
 
-  // Handle type selection - fetch introspection data for selected types
-  const handleTypeSelection = async (newTypes: string[]) => {
-    setSelectedTypes(newTypes);
+  // Handle root type selection - fetch introspection data for selected types
+  const handleRootTypeSelection = async (newTypes: string[]) => {
+    setSelectedRootTypes(newTypes);
 
     // Fetch introspection data for newly selected types
     if (newTypes.length > 0) {
@@ -43,13 +55,14 @@ function App() {
   // Stable transform options - memoized to prevent unnecessary re-renders
   const transformOptions = useMemo<TransformOptions>(() => ({
     maxDepth: depth,
-    includeScalars: false, // Filter out scalar fields by default
+    includeScalars: false,
     showFieldNodes: false,
-  }), [depth]);
+    typeFilter,
+  }), [depth, typeFilter]);
 
-  // Build graph when selections or type data changes
+  // Build graph when root type selections or type data changes
   useEffect(() => {
-    if (selectedTypes.length === 0) {
+    if (selectedRootTypes.length === 0) {
       setGraphData({ nodes: [], edges: [] });
       return;
     }
@@ -64,13 +77,17 @@ function App() {
     // Build graph from introspection data with auto-fetch
     const buildGraph = async () => {
       const { nodes, edges } = await buildGraphFromIntrospection(
-        selectedTypes,
+        selectedRootTypes,
         typeData,
         transformOptions,
-        fetchMultipleTypes // Enable auto-fetch of referenced types
+        fetchMultipleTypes
       );
 
       if (!cancelled) {
+        console.log('[App] Graph built with app filtering:', {
+          nodesCreated: nodes.length,
+          edgesCreated: edges.length,
+        });
         setGraphData({ nodes, edges });
       }
     };
@@ -81,7 +98,7 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [selectedTypes, typeData, transformOptions, fetchMultipleTypes]);
+  }, [selectedRootTypes, typeData, transformOptions, fetchMultipleTypes]);
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -102,20 +119,28 @@ function App() {
         </Alert>
       )}
 
-      {/* Main controls - disabled while loading */}
-      <ControlPanel
-        depth={depth}
-        onDepthChange={setDepth}
-        availableTypes={availableTypes}
-        selectedTypes={selectedTypes}
-        onTypeSelect={handleTypeSelection}
-      />
+      {/* Type discovery error */}
+      {typesDiscoveryError && !typesDiscoveryLoading && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          Type discovery failed. Using default filter settings. Error: {typesDiscoveryError}
+        </Alert>
+      )}
 
+      {/* Graph with integrated control panel */}
       <Box sx={{ border: '1px solid #ddd', borderRadius: 2, overflow: 'hidden' }}>
         <GraphCanvas
           nodes={graphData.nodes}
           edges={graphData.edges}
           maxDepth={depth}
+          depth={depth}
+          onDepthChange={setDepth}
+          rootTypes={rootTypes}
+          selectedRootTypes={selectedRootTypes}
+          onRootTypeSelect={handleRootTypeSelection}
+          filterTypes={filterConfig.additionalTypes}
+          discoveredTypes={discoveredTypes}
+          onAddFilterType={addAdditionalType}
+          onRemoveFilterType={removeAdditionalType}
         />
       </Box>
     </Container>
