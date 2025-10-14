@@ -20,10 +20,10 @@ interface GraphCanvasProps {
   // Control panel props
   depth: number;
   onDepthChange: (depth: number) => void;
-  // Root type selection - primary model type that can be selected as graph starting point
+  // Root type selection - types that can be selected as graph starting points
   rootTypes: string[];
-  selectedRootType: string | null;
-  onRootTypeSelect: (type: string | null) => void;
+  selectedRootTypes: string[];
+  onRootTypeSelect: (types: string[]) => void;
   // Type filtering - additional types to include during graph traversal
   filterTypes: string[];
   discoveredTypes: string[];
@@ -38,7 +38,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   depth,
   onDepthChange,
   rootTypes,
-  selectedRootType,
+  selectedRootTypes,
   onRootTypeSelect,
   filterTypes,
   discoveredTypes,
@@ -78,7 +78,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         <Panel position="top-left" style={{ margin: 10 }}>
           <GraphControlsPanel
             rootTypes={rootTypes}
-            selectedRootType={selectedRootType}
+            selectedRootTypes={selectedRootTypes}
             onRootTypeSelect={onRootTypeSelect}
             depth={depth}
             onDepthChange={onDepthChange}

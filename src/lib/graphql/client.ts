@@ -18,29 +18,6 @@ interface GraphQLResponse<T = any> {
 }
 
 /**
- * Nautobot ContentType from /extras/content-types/ API
- */
-export interface ContentType {
-  id: number;
-  object_type: string;
-  display: string;
-  url: string;
-  natural_slug: string;
-  app_label: string;
-  model: string;
-}
-
-/**
- * Response structure from /extras/content-types/ API
- */
-interface ContentTypesResponse {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: ContentType[];
-}
-
-/**
  * Builds GraphQL endpoint URL from base Nautobot URL
  * Ensures proper URL formatting with trailing slashes
  * In development, uses Vite proxy to avoid CORS issues
@@ -48,15 +25,15 @@ interface ContentTypesResponse {
  * @param baseUrl - Base Nautobot URL from environment
  * @returns Full GraphQL endpoint URL
  */
-function buildApiEndpoint(baseUrl: string): string {
+function buildGraphQLEndpoint(baseUrl: string): string {
   // In development, use the Vite proxy
   if (import.meta.env.DEV) {
-    return '/api/';
+    return '/api/graphql/';
   }
 
   // In production, use the full URL
   const normalizedUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-  return `${normalizedUrl}api/`;
+  return `${normalizedUrl}api/graphql/`;
 }
 
 /**
@@ -79,7 +56,7 @@ function createClientConfig(): GraphQLClientConfig {
   }
 
   return {
-    url: buildApiEndpoint(url),
+    url: buildGraphQLEndpoint(url),
     apiToken,
   };
 }
@@ -105,7 +82,7 @@ export async function executeGraphQLQuery<T = any>(
   };
 
   try {
-    const response = await fetch(config.url + 'graphql/', {
+    const response = await fetch(config.url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -136,64 +113,5 @@ export async function executeGraphQLQuery<T = any>(
       throw error;
     }
     throw new Error('Unknown error occurred during GraphQL request');
-  }
-}
-
-/**
- * Fetches all content types from Nautobot /extras/content-types/ API
- * This is a REST API endpoint, not GraphQL
- *
- * Content types represent the Django models available in Nautobot.
- * Used to identify which GraphQL types correspond to primary models.
- *
- * Filters by primary Nautobot app labels (dcim, ipam, circuits) to reduce
- * the result set and avoid pagination issues.
- *
- * @returns Array of content types from primary Nautobot apps
- * @throws Error if network request fails or authentication fails
- */
-export async function executeContentTypesQuery(): Promise<ContentType[]> {
-  const config = createClientConfig();
-
-  // Filter by primary Nautobot apps to reduce result set
-  // This avoids API pagination limits and returns only relevant models
-  const appLabels = ['dcim', 'ipam', 'circuits'];
-  const appFilter = appLabels.map(app => `app_label=${app}`).join('&');
-  const url = config.url + `extras/content-types/?${appFilter}&limit=1000`;
-
-  try {
-    console.log('[Content Types] Fetching from:', url);
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Token ${config.apiToken}`,
-      },
-    });
-
-    // Handle HTTP errors
-    if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
-        throw new Error(`Authentication failed: ${response.status} ${response.statusText}`);
-      }
-      throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
-    }
-
-    const result: ContentTypesResponse = await response.json();
-    const contentTypes = result.results;
-
-    console.log('[Content Types] Loaded successfully:', {
-      total: contentTypes.length,
-      sampleTypes: contentTypes.slice(0, 5).map(ct => `${ct.app_label}.${ct.model}`),
-    });
-
-    return contentTypes;
-  } catch (error) {
-    if (error instanceof Error) {
-      console.error('[Content Types] Request failed:', { error: error.message });
-      throw error;
-    }
-    throw new Error('Unknown error occurred during content types request');
   }
 }

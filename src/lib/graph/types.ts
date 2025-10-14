@@ -7,7 +7,6 @@ export interface GraphNode extends Node {
     depth: number;
     isRoot: boolean;
     fieldType?: 'scalar' | 'object' | 'list';
-    isPrimaryModel: boolean;
   };
 }
 

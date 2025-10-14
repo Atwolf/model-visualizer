@@ -16,7 +16,6 @@ export interface TransformOptions {
   includeScalars?: boolean; // Default: false (filter out scalar fields)
   typeFilter?: (typename: string) => boolean;
   showFieldNodes?: boolean;
-  primaryModelChecker?: (typename: string) => boolean;
 }
 
 export interface GraphTransformResult {
@@ -28,7 +27,6 @@ export interface GraphTransformResult {
     nodesPerDepth: Record<number, number>;
     filteredNodes: number;
     typesFetched: number;
-    edgesSkippedNonPrimary: number;
   };
 }
 
@@ -85,23 +83,18 @@ function generateNodeId(
  * @param fieldName - Field name (null for root nodes)
  * @param depth - Depth in graph
  * @param isRoot - Whether this is a root node
- * @param primaryModelChecker - Optional function to check if type is a primary model
  * @returns GraphNode ready for ReactFlow
  */
 function createNode(
   typename: string,
   fieldName: string | null,
   depth: number,
-  isRoot: boolean,
-  primaryModelChecker?: (typename: string) => boolean
+  isRoot: boolean
 ): GraphNode {
   const id = generateNodeId(typename, fieldName, depth);
   // Clean the typename for display by removing "Type" suffix
   const cleanedTypename = cleanTypenameForDisplay(typename);
   const label = isRoot ? cleanedTypename : (fieldName || cleanedTypename);
-
-  // Check if this type corresponds to a primary Nautobot model
-  const isPrimaryModel = primaryModelChecker ? primaryModelChecker(typename) : false;
 
   return {
     id,
@@ -112,7 +105,6 @@ function createNode(
       depth,
       isRoot,
       fieldType: 'object', // Can be enhanced later to distinguish scalar/list
-      isPrimaryModel,
     },
     position: { x: 0, y: 0 }, // Will be calculated by layout algorithm
   };
@@ -220,7 +212,7 @@ function createNodeForType(
 
   // Create node for this type
   const isRoot = currentDepth === 0;
-  const node = createNode(typename, null, currentDepth, isRoot, options.primaryModelChecker);
+  const node = createNode(typename, null, currentDepth, isRoot);
   nodes.push(node);
 
   // Update stats
@@ -240,15 +232,14 @@ function createNodeForType(
  * @param nodes - All created nodes from Pass 1
  * @param typeData - Type introspection data
  * @param options - Transform options including type filter
- * @returns Object with edges array and count of skipped edges
+ * @returns Array of edges connecting nodes
  */
 function createEdgesBetweenNodes(
   nodes: GraphNode[],
   typeData: Map<string, IntrospectionType>,
   options: TransformOptions
-): { edges: GraphEdge[]; edgesSkippedNonPrimary: number } {
+): GraphEdge[] {
   const edges: GraphEdge[] = [];
-  let edgesSkippedNonPrimary = 0;
 
   // Build node map for O(1) lookups: typename:depth -> node
   const nodeMap = new Map<string, GraphNode>();
@@ -259,25 +250,6 @@ function createEdgesBetweenNodes(
 
   // For each node, create edges to its children
   for (const parentNode of nodes) {
-    // Skip edge creation if parent is NOT a primary model
-    // This makes non-primary models terminal nodes (leaves)
-    if (!parentNode.data.isPrimaryModel) {
-      const typeInfo = typeData.get(parentNode.data.typename);
-      if (typeInfo) {
-        const relationshipFields = extractRelationshipFields(typeInfo);
-        if (relationshipFields.length > 0) {
-          console.log('[Edge Filtering] Skipping edges from non-primary model:', {
-            typename: parentNode.data.typename,
-            depth: parentNode.data.depth,
-            potentialEdges: relationshipFields.length,
-            fields: relationshipFields.map(f => f.name),
-          });
-          edgesSkippedNonPrimary += relationshipFields.length;
-        }
-      }
-      continue; // Skip this node entirely
-    }
-
     const typeInfo = typeData.get(parentNode.data.typename);
     if (!typeInfo) continue;
 
@@ -307,7 +279,7 @@ function createEdgesBetweenNodes(
     }
   }
 
-  return { edges, edgesSkippedNonPrimary };
+  return edges;
 }
 
 /**
@@ -442,7 +414,7 @@ export async function buildGraphFromIntrospection(
   // PASS 2: Create all edges between existing nodes
   // ============================================================================
 
-  const { edges, edgesSkippedNonPrimary } = createEdgesBetweenNodes(nodes, allTypeData, options);
+  const edges = createEdgesBetweenNodes(nodes, allTypeData, options);
 
   // ============================================================================
   // PASS 3: Apply tree layout to position nodes
@@ -459,7 +431,6 @@ export async function buildGraphFromIntrospection(
       nodesPerDepth: stats.nodesPerDepth,
       filteredNodes: stats.filteredNodes,
       typesFetched: stats.typesFetched,
-      edgesSkippedNonPrimary,
     },
   };
 
@@ -469,7 +440,6 @@ export async function buildGraphFromIntrospection(
     nodesPerDepth: result.stats.nodesPerDepth,
     filtered: result.stats.filteredNodes,
     typesFetched: stats.typesFetched,
-    edgesSkippedNonPrimary,
   });
 
   return result;

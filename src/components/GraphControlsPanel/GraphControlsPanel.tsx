@@ -19,10 +19,10 @@ import {
 import { categorizeType, NautobotApp } from '../../lib/graph/appTypeFilter';
 
 interface GraphControlsPanelProps {
-  // Root type selection - primary model type that can be selected as graph starting point
+  // Root type selection - types that can be selected as graph starting points
   rootTypes: string[];
-  selectedRootType: string | null;
-  onRootTypeSelect: (type: string | null) => void;
+  selectedRootTypes: string[];
+  onRootTypeSelect: (types: string[]) => void;
 
   // Depth control
   depth: number;
@@ -43,7 +43,7 @@ const APP_COLORS: Record<NautobotApp, string> = {
 
 export function GraphControlsPanel({
   rootTypes,
-  selectedRootType,
+  selectedRootTypes,
   onRootTypeSelect,
   depth,
   onDepthChange,
@@ -83,22 +83,34 @@ export function GraphControlsPanel({
     >
       {/* Main Controls - Always Visible */}
       <Box sx={{ p: 2, pb: 1.5 }}>
-        {/* Root Type - Starting point for graph visualization (single primary model) */}
+        {/* Root Types - Starting points for graph visualization */}
         <Autocomplete
+          multiple
           size="small"
           options={rootTypes}
-          value={selectedRootType}
+          value={selectedRootTypes}
           onChange={(_, newValue) => onRootTypeSelect(newValue)}
           disabled={rootTypes.length === 0}
           renderInput={(params) => (
             <TextField
               {...params}
-              label="Root Type (Primary Model)"
-              placeholder="Select a primary model..."
+              label="Root Types"
+              placeholder="Select types..."
               size="small"
-              helperText={rootTypes.length > 0 ? `${rootTypes.length} primary models available` : 'Loading primary models...'}
             />
           )}
+          renderTags={(value, getTagProps) =>
+            value.map((option, index) => (
+              <Chip
+                label={option}
+                {...getTagProps({ index })}
+                size="small"
+                color="primary"
+                sx={{ height: 24 }}
+                key={option}
+              />
+            ))
+          }
           sx={{ mb: 2 }}
         />
 
