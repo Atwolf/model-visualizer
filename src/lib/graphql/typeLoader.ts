@@ -1,4 +1,5 @@
 import { introspectType, IntrospectionType } from './introspection';
+import { getErrorMessage } from '../utils/errors';
 
 /**
  * Default types to load on application startup
@@ -75,7 +76,7 @@ async function loadSingleType(
       timestamp: new Date(),
     };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorMessage = getErrorMessage(error);
     console.error('Failed to load type:', { typename, error: errorMessage });
 
     return {

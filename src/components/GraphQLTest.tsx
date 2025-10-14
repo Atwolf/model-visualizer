@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button, Box, Typography, Paper, Alert } from '@mui/material';
 import { executeGraphQLQuery } from '../lib/graphql/client';
 import { introspectType, isRelationshipField, unwrapType } from '../lib/graphql/introspection';
+import { getErrorMessage } from '../lib/utils/errors';
 
 export const GraphQLTest = () => {
   const [result, setResult] = useState<string>('');
@@ -30,7 +31,7 @@ export const GraphQLTest = () => {
         setResult(JSON.stringify(response.data, null, 2));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -75,7 +76,7 @@ export const GraphQLTest = () => {
 
       setResult(JSON.stringify(analysis, null, 2));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

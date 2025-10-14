@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useCallback } from 'react';
 import { loadDefaultTypes } from '../lib/graphql/typeLoader';
 import { IntrospectionType } from '../lib/graphql/introspection';
+import { useAsyncResource } from './useAsyncResource';
+import { getErrorMessage } from '../lib/utils/errors';
 
 export interface UseInitialTypeLoadResult {
   types: Map<string, IntrospectionType>;
@@ -16,55 +18,44 @@ export interface UseInitialTypeLoadResult {
  * @returns Loading state, loaded types, and reload function
  */
 export function useInitialTypeLoad(): UseInitialTypeLoadResult {
-  const [types, setTypes] = useState<Map<string, IntrospectionType>>(new Map());
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadTypes = async () => {
-    setLoading(true);
-    setError(null);
-
+  const loadTypes = useCallback(async (): Promise<Map<string, IntrospectionType>> => {
     try {
       const result = await loadDefaultTypes();
 
-      // If all types failed, set error
       if (result.failed.length > 0 && result.successful.length === 0) {
         const errorMessages = result.failed.map((f) => f.typename).join(', ');
-        setError(`Failed to load all types: ${errorMessages}`);
-        setTypes(new Map());
-        return;
+        throw new Error(`Failed to load all types: ${errorMessages}`);
       }
 
-      // If some types failed, log warning but continue
       if (result.failed.length > 0) {
-        console.warn('Some types failed to load:', result.failed);
+        console.warn('[useInitialTypeLoad] Some types failed to load:', result.failed);
       }
 
-      // Build type map from successful loads
       const typeMap = new Map<string, IntrospectionType>();
       result.successful.forEach((loadResult) => {
         typeMap.set(loadResult.typename, loadResult.data);
       });
 
-      setTypes(typeMap);
+      return typeMap;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error loading types';
-      setError(errorMessage);
-      setTypes(new Map());
-    } finally {
-      setLoading(false);
+      const errorMessage = getErrorMessage(err, 'Unknown error loading types');
+      console.error('[useInitialTypeLoad] Failed to load types:', errorMessage);
+      throw new Error(errorMessage);
     }
-  };
+  }, []);
 
-  // Load types on mount
-  useEffect(() => {
-    loadTypes();
-  }, []); // Empty dependency array = run once on mount
+  const { data, loading, error, reload } = useAsyncResource(loadTypes, {
+    initialValue: () => new Map<string, IntrospectionType>(),
+  });
+
+  const reloadTypes = useCallback(async () => {
+    await reload();
+  }, [reload]);
 
   return {
-    types,
+    types: data,
     loading,
     error,
-    reload: loadTypes,
+    reload: reloadTypes,
   };
 }

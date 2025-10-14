@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useMemo } from 'react';
 import { discoverAllTypes } from '../lib/graphql/introspection';
+import { useAsyncResource } from './useAsyncResource';
+import { getErrorMessage } from '../lib/utils/errors';
 
 /**
  * State returned by the type discovery hook
@@ -14,55 +16,38 @@ export interface TypeDiscoveryState {
 }
 
 export function useTypeDiscovery(): TypeDiscoveryState {
-  const [state, setState] = useState<TypeDiscoveryState>({
-    types: [],
-    loading: true,
-    error: null,
-  });
+  const discoverTypes = useCallback(async () => {
+    console.log('[useTypeDiscovery] Initiating type discovery');
 
-  useEffect(() => {
-    let mounted = true;
+    const startTime = Date.now();
 
-    async function discover() {
-      console.log('[useTypeDiscovery] Initiating type discovery');
+    try {
+      const discoveredTypes = await discoverAllTypes();
+      const duration = Date.now() - startTime;
 
-      try {
-        const startTime = Date.now();
-        const discoveredTypes = await discoverAllTypes();
-        const duration = Date.now() - startTime;
+      console.log('[useTypeDiscovery] Success:', {
+        typesFound: discoveredTypes.length,
+        duration: `${duration}ms`,
+      });
 
-        if (!mounted) return;
-
-        console.log('[useTypeDiscovery] Success:', {
-          typesFound: discoveredTypes.length,
-          duration: `${duration}ms`,
-        });
-
-        setState({
-          types: discoveredTypes,
-          loading: false,
-          error: null,
-        });
-      } catch (err) {
-        if (!mounted) return;
-
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        console.error('[useTypeDiscovery] Failed:', errorMessage);
-
-        setState({
-          types: [],
-          loading: false,
-          error: errorMessage,
-        });
-      }
+      return discoveredTypes;
+    } catch (err) {
+      const errorMessage = getErrorMessage(err);
+      console.error('[useTypeDiscovery] Failed:', errorMessage);
+      throw new Error(errorMessage);
     }
-
-    discover();
-
-    return () => {
-      mounted = false;
-    };
   }, []);
 
-  return state;
+  const { data, loading, error } = useAsyncResource(discoverTypes, {
+    initialValue: () => [],
+  });
+
+  return useMemo(
+    () => ({
+      types: data,
+      loading,
+      error,
+    }),
+    [data, error, loading]
+  );
 }

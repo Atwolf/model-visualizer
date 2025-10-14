@@ -74,6 +74,7 @@ The app uses a **hooks-based architecture** with specialized hooks:
 - `useTypeFetcher` - Provides function to fetch introspection data for specific types
 - `useTypeDiscovery` - Discovers all available types for autocomplete
 - `useInitialTypeLoad` - Loads initial set of root types on app mount
+- `useAsyncResource` - Shared async state manager used by the data-loading hooks above
 
 **Critical**: The `transformOptions` object in `App.tsx` is memoized with `useMemo` to prevent unnecessary graph rebuilds. Changes to `typeFilter` will trigger a complete graph rebuild.
 

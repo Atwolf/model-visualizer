@@ -1,3 +1,5 @@
+import { getErrorMessage } from '../utils/errors';
+
 interface GraphQLClientConfig {
   url: string;
   apiToken: string;
@@ -108,10 +110,13 @@ export async function executeGraphQLQuery<T = any>(
 
     return result;
   } catch (error) {
+    const message = getErrorMessage(error, 'Unknown error occurred during GraphQL request');
+    console.error('GraphQL request failed:', { error: message });
+
     if (error instanceof Error) {
-      console.error('GraphQL request failed:', { error: error.message });
       throw error;
     }
-    throw new Error('Unknown error occurred during GraphQL request');
+
+    throw new Error(message);
   }
 }
