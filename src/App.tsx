@@ -8,6 +8,10 @@ import { useTypeDiscovery } from './hooks/useTypeDiscovery';
 import { IntrospectionType } from './lib/graphql/introspection';
 import { filterPrimaryModels } from './lib/graph/primaryModelFilter';
 import { extractTypenames } from './lib/graph/typeUtils';
+import { parseForeignKeysFromModule } from './utils/fkParser';
+import { buildNameMapper } from './utils/nameMapper';
+import { buildFKLookupMap } from './utils/fkLookup';
+import sqlExportData from './data/sql_export.json';
 
 function App() {
   // Type fetcher for dynamic loading
@@ -120,13 +124,44 @@ function App() {
     setFilterTypes(prev => prev.filter(t => t !== typename));
   }, []);
 
+  // FK System Integration: Build FK lookup map from type discovery
+  const fkLookup = useMemo(() => {
+    try {
+      console.log('[App] Building FK lookup system...');
+
+      // Step 1: Parse FK data from sql_export.json
+      const foreignKeys = parseForeignKeysFromModule(sqlExportData);
+      console.log(`[App] Parsed ${foreignKeys.length} foreign keys`);
+
+      // Step 2: Build name mapper from discovered types
+      const allTypenames = extractTypenames(discoveredTypeInfos);
+      if (allTypenames.length === 0) {
+        console.warn('[App] No types available for name mapping');
+        return null;
+      }
+
+      const nameMapper = buildNameMapper(allTypenames);
+      console.log(`[App] Built name mapper with ${nameMapper.getAllTypes().length} types`);
+
+      // Step 3: Build FK lookup map
+      const lookup = buildFKLookupMap(foreignKeys, nameMapper);
+      console.log(`[App] Built FK lookup with ${lookup.size} entries`);
+
+      return lookup;
+    } catch (error) {
+      console.error('[App] Failed to build FK lookup:', error);
+      return null;
+    }
+  }, [discoveredTypeInfos]);
+
   // Stable transform options - memoized to prevent unnecessary re-renders
   const transformOptions = useMemo<TransformOptions>(() => ({
     maxDepth: depth,
     includeScalars: false,
     showFieldNodes: false,
     typeFilter,
-  }), [depth, typeFilter]);
+    fkLookup, // Include FK lookup for edge enhancement
+  }), [depth, typeFilter, fkLookup]);
 
   // Build graph when root type selections or type data changes
   useEffect(() => {

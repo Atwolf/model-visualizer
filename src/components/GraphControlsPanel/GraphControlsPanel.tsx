@@ -10,6 +10,8 @@ import {
   Collapse,
   Paper,
   Typography,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -60,6 +62,10 @@ interface GraphControlsPanelProps {
   discoveredTypeInfos: TypeInfo[];
   onAddFilterType: (typename: string) => void;
   onRemoveFilterType: (typename: string) => void;
+
+  // FK filtering - show only FK edges
+  showFKOnly: boolean;
+  onToggleFKOnly: (enabled: boolean) => void;
 }
 
 const APP_COLORS: Record<NautobotApp, string> = {
@@ -78,6 +84,8 @@ export function GraphControlsPanel({
   discoveredTypeInfos,
   onAddFilterType,
   onRemoveFilterType,
+  showFKOnly,
+  onToggleFKOnly,
 }: GraphControlsPanelProps): JSX.Element {
   const [filterExpanded, setFilterExpanded] = useState(false);
 
@@ -177,6 +185,26 @@ export function GraphControlsPanel({
                 width: 1,
               },
             }}
+          />
+        </Box>
+
+        {/* FK Filter Toggle */}
+        <Box sx={{ px: 1, pt: 1 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={showFKOnly}
+                onChange={(e) => onToggleFKOnly(e.target.checked)}
+                size="small"
+                color="primary"
+              />
+            }
+            label={
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+                Show FK edges only
+              </Typography>
+            }
+            sx={{ m: 0 }}
           />
         </Box>
       </Box>

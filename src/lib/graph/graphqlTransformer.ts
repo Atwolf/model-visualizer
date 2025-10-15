@@ -6,6 +6,8 @@ import {
 } from '../graphql/introspection';
 import { GraphNode, GraphEdge } from './types';
 import { applyTreeLayout } from './layout';
+import { FKLookupMap } from '../../types/fkMetadata';
+import { enhanceEdgeWithFK } from './edgeEnhancer';
 
 // ============================================================================
 // Type Definitions
@@ -16,6 +18,7 @@ export interface TransformOptions {
   includeScalars?: boolean; // Default: false (filter out scalar fields)
   typeFilter?: (typename: string) => boolean;
   showFieldNodes?: boolean;
+  fkLookup?: FKLookupMap | null; // FK lookup map for edge enhancement
 }
 
 export interface GraphTransformResult {
@@ -273,7 +276,17 @@ function createEdgesBetweenNodes(
 
       // Only create edge if child node exists
       if (childNode) {
-        const edge = createEdge(parentNode.id, childNode.id, field.name);
+        // Create base edge
+        let edge = createEdge(parentNode.id, childNode.id, field.name);
+
+        // Enhance edge with FK metadata if available
+        edge = enhanceEdgeWithFK(
+          edge,
+          parentNode.data.typename,
+          field.name,
+          options.fkLookup ?? null
+        );
+
         edges.push(edge);
       }
     }

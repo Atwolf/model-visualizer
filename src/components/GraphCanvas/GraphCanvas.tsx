@@ -8,6 +8,9 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { CustomNode } from './CustomNode';
+import { FKAwareEdge } from './FKAwareEdge';
+import { EdgeLegend } from '../EdgeLegend/EdgeLegend';
+import { FKStats } from '../FKStats/FKStats';
 import { GraphNode, GraphEdge } from '../../lib/graph/types';
 import { filterByDepth } from '../../lib/graph/depthFilter';
 import { calculateTreeLayout } from '../../lib/graph/treeLayout';
@@ -52,13 +55,22 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   // Define custom node types
   const nodeTypes = useMemo(() => ({ custom: CustomNode }), []);
 
+  // Define custom edge types
+  const edgeTypes = useMemo(() => ({ fkAware: FKAwareEdge }), []);
+
   // Filter and layout nodes based on depth
   useEffect(() => {
     const { filteredNodes, filteredEdges } = filterByDepth(nodes, edges, maxDepth);
     const layoutedNodes = calculateTreeLayout(filteredNodes);
 
+    // Convert all edges to use FK-aware edge type
+    const typedEdges = filteredEdges.map((edge) => ({
+      ...edge,
+      type: 'fkAware',
+    }));
+
     setFlowNodes(layoutedNodes);
-    setFlowEdges(filteredEdges);
+    setFlowEdges(typedEdges);
   }, [nodes, edges, maxDepth, setFlowNodes, setFlowEdges]);
 
   return (
@@ -69,9 +81,54 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         attributionPosition="bottom-left"
       >
+        {/* SVG marker definitions for FK-aware arrows */}
+        <svg>
+          <defs>
+            {/* Blue arrow for forward FKs */}
+            <marker
+              id="arrow-blue"
+              markerWidth="10"
+              markerHeight="10"
+              refX="9"
+              refY="3"
+              orient="auto"
+              markerUnits="strokeWidth"
+            >
+              <path d="M0,0 L0,6 L9,3 z" fill="#2563eb" />
+            </marker>
+
+            {/* Green arrow for reverse relationships */}
+            <marker
+              id="arrow-green"
+              markerWidth="10"
+              markerHeight="10"
+              refX="9"
+              refY="3"
+              orient="auto"
+              markerUnits="strokeWidth"
+            >
+              <path d="M0,0 L0,6 L9,3 z" fill="#10b981" />
+            </marker>
+
+            {/* Gray arrow for non-FK edges */}
+            <marker
+              id="arrow-gray"
+              markerWidth="10"
+              markerHeight="10"
+              refX="9"
+              refY="3"
+              orient="auto"
+              markerUnits="strokeWidth"
+            >
+              <path d="M0,0 L0,6 L9,3 z" fill="#94a3b8" />
+            </marker>
+          </defs>
+        </svg>
+
         <Background />
         <Controls />
 
@@ -88,6 +145,16 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
             onAddFilterType={onAddFilterType}
             onRemoveFilterType={onRemoveFilterType}
           />
+        </Panel>
+
+        {/* Edge Legend */}
+        <Panel position="bottom-left" style={{ margin: 10 }}>
+          <EdgeLegend />
+        </Panel>
+
+        {/* FK Statistics */}
+        <Panel position="bottom-right" style={{ margin: 10 }}>
+          <FKStats edges={flowEdges} />
         </Panel>
       </ReactFlow>
     </div>
