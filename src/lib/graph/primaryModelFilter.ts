@@ -3,7 +3,7 @@
  * Matches GraphQL type names to model_kinds.json primary model definitions
  */
 
-import modelKinds from '../../data/model_kinds.json';
+import modelKinds from '../../defaults/model_kinds.json';
 
 /**
  * Convert a Nautobot model name (e.g., "dcim.device") to possible GraphQL type name (e.g., "DeviceType")
