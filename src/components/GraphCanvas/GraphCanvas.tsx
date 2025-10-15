@@ -16,6 +16,7 @@ import { filterByDepth } from '../../lib/graph/depthFilter';
 import { calculateTreeLayout } from '../../lib/graph/treeLayout';
 import { GraphControlsPanel } from '../GraphControlsPanel/GraphControlsPanel';
 import { TypeInfo } from '../../lib/graph/typeUtils';
+import { filterFKEdges } from '../../lib/graph/edgeEnhancer';
 
 interface GraphCanvasProps {
   nodes: GraphNode[];
@@ -33,6 +34,9 @@ interface GraphCanvasProps {
   discoveredTypeInfos: TypeInfo[];
   onAddFilterType: (typename: string) => void;
   onRemoveFilterType: (typename: string) => void;
+  // FK filtering - show only FK edges
+  showFKOnly: boolean;
+  onToggleFKOnly: (enabled: boolean) => void;
 }
 
 export const GraphCanvas: React.FC<GraphCanvasProps> = ({
@@ -48,6 +52,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   discoveredTypeInfos,
   onAddFilterType,
   onRemoveFilterType,
+  showFKOnly,
+  onToggleFKOnly,
 }) => {
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState([]);
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState([]);
@@ -61,17 +67,21 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   // Filter and layout nodes based on depth
   useEffect(() => {
     const { filteredNodes, filteredEdges } = filterByDepth(nodes, edges, maxDepth);
+
+    // Apply FK filtering if enabled
+    const finalEdges = showFKOnly ? filterFKEdges(filteredEdges) : filteredEdges;
+
     const layoutedNodes = calculateTreeLayout(filteredNodes);
 
     // Convert all edges to use FK-aware edge type
-    const typedEdges = filteredEdges.map((edge) => ({
+    const typedEdges = finalEdges.map((edge) => ({
       ...edge,
       type: 'fkAware',
     }));
 
     setFlowNodes(layoutedNodes);
     setFlowEdges(typedEdges);
-  }, [nodes, edges, maxDepth, setFlowNodes, setFlowEdges]);
+  }, [nodes, edges, maxDepth, showFKOnly, setFlowNodes, setFlowEdges]);
 
   return (
     <div style={{ width: '100%', height: '800px' }}>
@@ -144,6 +154,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
             discoveredTypeInfos={discoveredTypeInfos}
             onAddFilterType={onAddFilterType}
             onRemoveFilterType={onRemoveFilterType}
+            showFKOnly={showFKOnly}
+            onToggleFKOnly={onToggleFKOnly}
           />
         </Panel>
 

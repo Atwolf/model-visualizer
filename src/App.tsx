@@ -60,6 +60,7 @@ function App() {
   const [depth, setDepth] = useState(2);
   const [selectedRootTypes, setSelectedRootTypes] = useState<string[]>([]);
   const [filterTypes, setFilterTypes] = useState<string[]>([]);
+  const [showFKOnly, setShowFKOnly] = useState(false);
   const [typeData, setTypeData] = useState<Map<string, IntrospectionType>>(new Map());
   const [graphData, setGraphData] = useState<{
     nodes: GraphNode[];
@@ -236,6 +237,8 @@ function App() {
           discoveredTypeInfos={primaryModelTypeInfos}
           onAddFilterType={handleAddFilterType}
           onRemoveFilterType={handleRemoveFilterType}
+          showFKOnly={showFKOnly}
+          onToggleFKOnly={setShowFKOnly}
         />
       </Box>
     </Container>
