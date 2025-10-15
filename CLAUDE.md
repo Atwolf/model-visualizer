@@ -106,6 +106,31 @@ The `typeFilter` function from `useAppTypeFilter` is passed into `graphqlTransfo
 
 The client automatically handles environment variables and switches between dev proxy and production direct connection.
 
+### Foreign Key Metadata System
+
+The application uses PostgreSQL foreign key data to determine edge directionality and cardinality:
+
+- **FK Data Source**: `src/defaults/source_target.json` - PostgreSQL FK export (377 relationships)
+- **FK Parser**: `src/utils/fkParser.ts` - Validates and parses FK JSON data
+- **Field Inference**: `src/utils/fieldNameInference.ts` - Converts PG column names to GraphQL fields (e.g., `manufacturer_id` → `manufacturer`)
+- **FK Lookup**: `src/utils/fkLookup.ts` - Builds O(1) lookup map with keys like `"DeviceType.manufacturer"`
+- **FK Loader**: `src/utils/fkLoader.ts` - Convenience API for loading bundled FK data
+
+**Usage Pattern**:
+```typescript
+import { loadBundledFKData } from './utils/fkLoader';
+import { buildFKLookupMap, getFKMetadata } from './utils/fkLookup';
+
+const foreignKeys = loadBundledFKData();
+const fkLookup = buildFKLookupMap(foreignKeys, nameMapper);
+
+// During edge creation:
+const metadata = getFKMetadata(fkLookup, 'DeviceType', 'manufacturer');
+// Returns: { direction: 'forward', cardinality: 'many-to-one', ... }
+```
+
+**Integration Point**: FK metadata should be added to edges during Pass 2 of `buildGraphFromIntrospection` to enable directional edge styling.
+
 ## Key Constraints
 
 - **Scalar filtering**: By default, scalar fields are filtered out - only object/interface relationships are visualized
