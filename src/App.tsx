@@ -1,43 +1,87 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Container, Box, Alert, CircularProgress } from '@mui/material';
 import { GraphCanvas } from './components/GraphCanvas/GraphCanvas';
-import { GraphQLTest } from './components/GraphQLTest';
 import { buildGraphFromIntrospection, TransformOptions } from './lib/graph/graphqlTransformer';
 import { GraphNode, GraphEdge } from './lib/graph/types';
-import { useInitialTypeLoad } from './hooks/useInitialTypeLoad';
 import { useTypeFetcher } from './hooks/useTypeFetcher';
-import { useAppTypeFilter } from './hooks/useAppTypeFilter';
 import { useTypeDiscovery } from './hooks/useTypeDiscovery';
 import { IntrospectionType } from './lib/graphql/introspection';
+import { filterPrimaryModels } from './lib/graph/primaryModelFilter';
+import { extractTypenames } from './lib/graph/typeUtils';
 
 function App() {
-  // Load default types from GraphQL
-  const { types: loadedTypes, loading: typesLoading, error: typeLoadError } = useInitialTypeLoad();
-
   // Type fetcher for dynamic loading
   const { fetchMultipleTypes } = useTypeFetcher();
 
-  // Type discovery for app-based filtering
-  const { types: discoveredTypes, loading: typesDiscoveryLoading, error: typesDiscoveryError } = useTypeDiscovery();
+  // Type discovery - get ALL available types from GraphQL schema with display names
+  const { typeInfos: discoveredTypeInfos, loading: typesDiscoveryLoading, error: typesDiscoveryError } = useTypeDiscovery();
 
-  // App-based type filtering
-  const {
-    config: filterConfig,
-    typeFilter,
-    addAdditionalType,
-    removeAdditionalType,
-  } = useAppTypeFilter();
+  // Filter discovered types to only primary models - this becomes our single source of truth
+  const primaryModelTypeInfos = useMemo(() => {
+    // Extract typenames for filtering
+    const allTypenames = extractTypenames(discoveredTypeInfos);
+    const primaryTypenames = filterPrimaryModels(allTypenames);
+
+    // Filter TypeInfo objects to only include primary models
+    const filtered = discoveredTypeInfos.filter(typeInfo =>
+      primaryTypenames.includes(typeInfo.typename)
+    );
+
+    console.log('[App] Filtered primary models:', {
+      totalDiscovered: discoveredTypeInfos.length,
+      primaryModels: filtered.length,
+      sampleDisplay: filtered.slice(0, 5).map(t => `${t.typename} -> ${t.displayName}`),
+    });
+    return filtered;
+  }, [discoveredTypeInfos]);
+
+  // Initial filter types - typenames that should be pre-selected
+  const INITIAL_FILTER_TYPES = [
+    'VLANType',
+    'VRFType',
+    'IPAddressType',
+    'CircuitType',
+    'CircuitTerminationType',
+    'ProviderType',
+    'ProviderNetworkType',
+    'DeviceType',
+    'InterfaceType',
+    'StatusType',
+    'RackType',
+    'LocationType',
+    'IPAddressFamilyType',
+    'PlatformType',
+  ];
 
   const [depth, setDepth] = useState(2);
   const [selectedRootTypes, setSelectedRootTypes] = useState<string[]>([]);
+  const [filterTypes, setFilterTypes] = useState<string[]>([]);
   const [typeData, setTypeData] = useState<Map<string, IntrospectionType>>(new Map());
   const [graphData, setGraphData] = useState<{
     nodes: GraphNode[];
     edges: GraphEdge[];
   }>({ nodes: [], edges: [] });
 
-  // Get available root types from loaded types - these are the types users can select as graph starting points
-  const rootTypes = Array.from(loadedTypes.keys());
+  // Use primaryModelTypeInfos as both rootTypes and available filter types
+  const rootTypeInfos = primaryModelTypeInfos;
+
+  // Set initial filter types once types are discovered
+  useEffect(() => {
+    if (primaryModelTypeInfos.length > 0 && filterTypes.length === 0) {
+      const primaryTypenames = extractTypenames(primaryModelTypeInfos);
+      const validInitialFilters = INITIAL_FILTER_TYPES.filter(typename =>
+        primaryTypenames.includes(typename)
+      );
+
+      console.log('[App] Setting initial filter types:', {
+        requested: INITIAL_FILTER_TYPES.length,
+        valid: validInitialFilters.length,
+        filters: validInitialFilters,
+      });
+
+      setFilterTypes(validInitialFilters);
+    }
+  }, [primaryModelTypeInfos]);
 
   // Handle root type selection - fetch introspection data for selected types
   const handleRootTypeSelection = async (newTypes: string[]) => {
@@ -51,6 +95,30 @@ function App() {
       setTypeData(new Map());
     }
   };
+
+  // Type filter function - include types that are in the filterTypes list
+  const typeFilter = useCallback((typename: string): boolean => {
+    // If no filter types selected, include all primary models
+    if (filterTypes.length === 0) {
+      return true;
+    }
+    // Otherwise, only include types in the filter list
+    return filterTypes.includes(typename);
+  }, [filterTypes]);
+
+  // Handlers for filter type management
+  const handleAddFilterType = useCallback((typename: string) => {
+    setFilterTypes(prev => {
+      if (prev.includes(typename)) {
+        return prev;
+      }
+      return [...prev, typename];
+    });
+  }, []);
+
+  const handleRemoveFilterType = useCallback((typename: string) => {
+    setFilterTypes(prev => prev.filter(t => t !== typename));
+  }, []);
 
   // Stable transform options - memoized to prevent unnecessary re-renders
   const transformOptions = useMemo<TransformOptions>(() => ({
@@ -84,9 +152,10 @@ function App() {
       );
 
       if (!cancelled) {
-        console.log('[App] Graph built with app filtering:', {
+        console.log('[App] Graph built:', {
           nodesCreated: nodes.length,
           edgesCreated: edges.length,
+          filterTypesActive: filterTypes.length,
         });
         setGraphData({ nodes, edges });
       }
@@ -98,31 +167,22 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [selectedRootTypes, typeData, transformOptions, fetchMultipleTypes]);
+  }, [selectedRootTypes, typeData, transformOptions, fetchMultipleTypes, filterTypes.length]);
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      <GraphQLTest />
-
       {/* Loading state */}
-      {typesLoading && (
+      {typesDiscoveryLoading && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
           <CircularProgress size={24} />
-          <Alert severity="info">Loading types from GraphQL schema...</Alert>
+          <Alert severity="info">Discovering types from GraphQL schema...</Alert>
         </Box>
-      )}
-
-      {/* Error state */}
-      {typeLoadError && !typesLoading && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          Failed to load types: {typeLoadError}
-        </Alert>
       )}
 
       {/* Type discovery error */}
       {typesDiscoveryError && !typesDiscoveryLoading && (
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          Type discovery failed. Using default filter settings. Error: {typesDiscoveryError}
+        <Alert severity="error" sx={{ mb: 3 }}>
+          Failed to discover types: {typesDiscoveryError}
         </Alert>
       )}
 
@@ -134,13 +194,13 @@ function App() {
           maxDepth={depth}
           depth={depth}
           onDepthChange={setDepth}
-          rootTypes={rootTypes}
+          rootTypeInfos={rootTypeInfos}
           selectedRootTypes={selectedRootTypes}
           onRootTypeSelect={handleRootTypeSelection}
-          filterTypes={filterConfig.additionalTypes}
-          discoveredTypes={discoveredTypes}
-          onAddFilterType={addAdditionalType}
-          onRemoveFilterType={removeAdditionalType}
+          filterTypes={filterTypes}
+          discoveredTypeInfos={primaryModelTypeInfos}
+          onAddFilterType={handleAddFilterType}
+          onRemoveFilterType={handleRemoveFilterType}
         />
       </Box>
     </Container>

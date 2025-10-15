@@ -12,6 +12,7 @@ import { GraphNode, GraphEdge } from '../../lib/graph/types';
 import { filterByDepth } from '../../lib/graph/depthFilter';
 import { calculateTreeLayout } from '../../lib/graph/treeLayout';
 import { GraphControlsPanel } from '../GraphControlsPanel/GraphControlsPanel';
+import { TypeInfo } from '../../lib/graph/typeUtils';
 
 interface GraphCanvasProps {
   nodes: GraphNode[];
@@ -21,12 +22,12 @@ interface GraphCanvasProps {
   depth: number;
   onDepthChange: (depth: number) => void;
   // Root type selection - types that can be selected as graph starting points
-  rootTypes: string[];
+  rootTypeInfos: TypeInfo[];
   selectedRootTypes: string[];
   onRootTypeSelect: (types: string[]) => void;
   // Type filtering - additional types to include during graph traversal
   filterTypes: string[];
-  discoveredTypes: string[];
+  discoveredTypeInfos: TypeInfo[];
   onAddFilterType: (typename: string) => void;
   onRemoveFilterType: (typename: string) => void;
 }
@@ -37,11 +38,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   maxDepth,
   depth,
   onDepthChange,
-  rootTypes,
+  rootTypeInfos,
   selectedRootTypes,
   onRootTypeSelect,
   filterTypes,
-  discoveredTypes,
+  discoveredTypeInfos,
   onAddFilterType,
   onRemoveFilterType,
 }) => {
@@ -77,13 +78,13 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         {/* Combined controls panel */}
         <Panel position="top-left" style={{ margin: 10 }}>
           <GraphControlsPanel
-            rootTypes={rootTypes}
+            rootTypeInfos={rootTypeInfos}
             selectedRootTypes={selectedRootTypes}
             onRootTypeSelect={onRootTypeSelect}
             depth={depth}
             onDepthChange={onDepthChange}
             filterTypes={filterTypes}
-            discoveredTypes={discoveredTypes}
+            discoveredTypeInfos={discoveredTypeInfos}
             onAddFilterType={onAddFilterType}
             onRemoveFilterType={onRemoveFilterType}
           />

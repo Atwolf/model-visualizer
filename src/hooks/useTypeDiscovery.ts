@@ -1,21 +1,22 @@
 import { useState, useEffect } from 'react';
 import { discoverAllTypes } from '../lib/graphql/introspection';
+import { TypeInfo, createTypeInfoList } from '../lib/graph/typeUtils';
 
 /**
  * State returned by the type discovery hook
- * @property types - Array of discovered OBJECT type names from GraphQL schema
+ * @property typeInfos - Array of discovered types with typename and displayName
  * @property loading - Whether type discovery is in progress
  * @property error - Error message if discovery failed, null otherwise
  */
 export interface TypeDiscoveryState {
-  types: string[];
+  typeInfos: TypeInfo[];
   loading: boolean;
   error: string | null;
 }
 
 export function useTypeDiscovery(): TypeDiscoveryState {
   const [state, setState] = useState<TypeDiscoveryState>({
-    types: [],
+    typeInfos: [],
     loading: true,
     error: null,
   });
@@ -33,13 +34,17 @@ export function useTypeDiscovery(): TypeDiscoveryState {
 
         if (!mounted) return;
 
+        // Convert typenames to TypeInfo objects with displayNames
+        const typeInfos = createTypeInfoList(discoveredTypes);
+
         console.log('[useTypeDiscovery] Success:', {
-          typesFound: discoveredTypes.length,
+          typesFound: typeInfos.length,
           duration: `${duration}ms`,
+          sampleTypes: typeInfos.slice(0, 5).map(t => `${t.typename} -> ${t.displayName}`),
         });
 
         setState({
-          types: discoveredTypes,
+          typeInfos,
           loading: false,
           error: null,
         });
@@ -50,7 +55,7 @@ export function useTypeDiscovery(): TypeDiscoveryState {
         console.error('[useTypeDiscovery] Failed:', errorMessage);
 
         setState({
-          types: [],
+          typeInfos: [],
           loading: false,
           error: errorMessage,
         });
