@@ -6,9 +6,6 @@ import ReactFlow, {
   useEdgesState,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { Fab, Tooltip } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import { CustomNode } from './CustomNode';
 import { FKAwareEdge } from './FKAwareEdge';
 import { GraphNode, GraphEdge } from '../../lib/graph/types';
@@ -120,7 +117,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     <>
       <GraphDrawer
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        onToggle={() => setDrawerOpen(!drawerOpen)}
         edges={flowEdges}
         controlsPanel={
           <GraphControlsPanel
@@ -138,28 +135,6 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           />
         }
       />
-
-      {/* Drawer toggle button */}
-      <Tooltip title={drawerOpen ? 'Close Controls' : 'Open Controls'} placement="right">
-        <Fab
-          color="primary"
-          aria-label={drawerOpen ? 'close drawer' : 'open drawer'}
-          onClick={() => setDrawerOpen(!drawerOpen)}
-          sx={{
-            position: 'fixed',
-            top: 16,
-            left: 16,
-            zIndex: 1200,
-            transition: 'all 0.3s ease',
-            transform: drawerOpen ? 'translateX(400px)' : 'translateX(0)',
-            '&:hover': {
-              transform: drawerOpen ? 'translateX(400px) scale(1.1)' : 'scale(1.1)',
-            },
-          }}
-        >
-          {drawerOpen ? <ChevronLeftIcon /> : <MenuIcon />}
-        </Fab>
-      </Tooltip>
 
       <div style={{ width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0 }}>
         <ReactFlow
