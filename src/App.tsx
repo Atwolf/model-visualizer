@@ -37,6 +37,7 @@ function App() {
   const [selectedRootTypes, setSelectedRootTypes] = useState<string[]>([DEFAULT_ROOT_TYPE]);
   const [filterTypes, setFilterTypes] = useState<string[]>([]);
   const [showFKOnly, setShowFKOnly] = useState(false);
+  const [initialFetchDone, setInitialFetchDone] = useState(false);
   const [typeData, setTypeData] = useState<Map<string, IntrospectionType>>(new Map());
   const [graphData, setGraphData] = useState<{
     nodes: GraphNode[];
@@ -69,10 +70,11 @@ function App() {
 
   // Auto-fetch initial root type data when types are discovered
   useEffect(() => {
-    if (primaryModelTypeInfos.length > 0 && selectedRootTypes.length > 0 && typeData.size === 0) {
+    if (primaryModelTypeInfos.length > 0 && !initialFetchDone && selectedRootTypes.length > 0 && typeData.size === 0) {
       handleRootTypeSelection(selectedRootTypes);
+      setInitialFetchDone(true);
     }
-  }, [primaryModelTypeInfos.length, selectedRootTypes, typeData.size, handleRootTypeSelection]);
+  }, [primaryModelTypeInfos.length, selectedRootTypes, handleRootTypeSelection, initialFetchDone, typeData.size]);
 
   // Type filter function - include types that are in the filterTypes list
   const typeFilter = useCallback((typename: string): boolean => {

@@ -98,6 +98,18 @@ export function GraphControlsPanel({
     return map;
   }, [discoveredTypeInfos]);
 
+  // Memoized sorted list to prevent sorting on every render
+  const sortedTypeInfos = useMemo(() => {
+    return [...discoveredTypeInfos].sort((a, b) => {
+      const appA = categorizeType(a.typename);
+      const appB = categorizeType(b.typename);
+      if (appA !== appB) {
+        return APP_ORDER[appA] - APP_ORDER[appB];
+      }
+      return a.displayName.localeCompare(b.displayName);
+    });
+  }, [discoveredTypeInfos]);
+
   // Organize filter types by app with display names
   const typesByApp = useMemo(() => {
     const organized: Record<NautobotApp, Array<{ typename: string; displayName: string }>> = {
@@ -225,14 +237,7 @@ export function GraphControlsPanel({
                 {/* Add Types Autocomplete */}
                 <Autocomplete
                   size="small"
-                  options={discoveredTypeInfos.sort((a, b) => {
-                    const appA = categorizeType(a.typename);
-                    const appB = categorizeType(b.typename);
-                    if (appA !== appB) {
-                      return APP_ORDER[appA] - APP_ORDER[appB];
-                    }
-                    return a.displayName.localeCompare(b.displayName);
-                  })}
+                  options={sortedTypeInfos}
                   getOptionLabel={(option) => option.displayName}
                   value={null}
                   onChange={(_, value) => value && onAddFilterType(value.typename)}
