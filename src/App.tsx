@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Container, Box, Alert, CircularProgress } from '@mui/material';
+import { Box, Alert, CircularProgress } from '@mui/material';
 import { GraphCanvas } from './components/GraphCanvas/GraphCanvas';
 import { buildGraphFromIntrospection, TransformOptions } from './lib/graph/graphqlTransformer';
 import { GraphNode, GraphEdge } from './lib/graph/types';
@@ -206,42 +206,68 @@ function App() {
   }, [selectedRootTypes, typeData, transformOptions, fetchMultipleTypes, filterTypes.length]);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      {/* Loading state */}
+    <>
+      {/* Loading state - overlay on top */}
       {typesDiscoveryLoading && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 16,
+            right: 16,
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            bgcolor: 'background.paper',
+            p: 2,
+            borderRadius: 1,
+            boxShadow: 3,
+          }}
+        >
           <CircularProgress size={24} />
-          <Alert severity="info">Discovering types from GraphQL schema...</Alert>
+          <Alert severity="info" sx={{ m: 0 }}>
+            Discovering types from GraphQL schema...
+          </Alert>
         </Box>
       )}
 
-      {/* Type discovery error */}
+      {/* Type discovery error - overlay on top */}
       {typesDiscoveryError && !typesDiscoveryLoading && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          Failed to discover types: {typesDiscoveryError}
-        </Alert>
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 16,
+            right: 16,
+            zIndex: 2000,
+            bgcolor: 'background.paper',
+            borderRadius: 1,
+            boxShadow: 3,
+          }}
+        >
+          <Alert severity="error">
+            Failed to discover types: {typesDiscoveryError}
+          </Alert>
+        </Box>
       )}
 
-      {/* Graph with integrated control panel */}
-      <Box sx={{ border: '1px solid #ddd', borderRadius: 2, overflow: 'hidden' }}>
-        <GraphCanvas
-          nodes={graphData.nodes}
-          edges={graphData.edges}
-          maxDepth={depth}
-          depth={depth}
-          onDepthChange={setDepth}
-          rootTypeInfos={rootTypeInfos}
-          selectedRootTypes={selectedRootTypes}
-          onRootTypeSelect={handleRootTypeSelection}
-          filterTypes={filterTypes}
-          discoveredTypeInfos={primaryModelTypeInfos}
-          onAddFilterType={handleAddFilterType}
-          onRemoveFilterType={handleRemoveFilterType}
-          showFKOnly={showFKOnly}
-          onToggleFKOnly={setShowFKOnly}
-        />
-      </Box>
-    </Container>
+      {/* Graph fills entire viewport */}
+      <GraphCanvas
+        nodes={graphData.nodes}
+        edges={graphData.edges}
+        maxDepth={depth}
+        depth={depth}
+        onDepthChange={setDepth}
+        rootTypeInfos={rootTypeInfos}
+        selectedRootTypes={selectedRootTypes}
+        onRootTypeSelect={handleRootTypeSelection}
+        filterTypes={filterTypes}
+        discoveredTypeInfos={primaryModelTypeInfos}
+        onAddFilterType={handleAddFilterType}
+        onRemoveFilterType={handleRemoveFilterType}
+        showFKOnly={showFKOnly}
+        onToggleFKOnly={setShowFKOnly}
+      />
+    </>
   );
 }
 

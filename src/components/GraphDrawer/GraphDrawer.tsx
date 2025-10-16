@@ -1,10 +1,14 @@
 import React from 'react';
 import { Drawer, Box, Typography, Divider } from '@mui/material';
+import { EdgeLegend } from '../EdgeLegend/EdgeLegend';
+import { FKStats } from '../FKStats/FKStats';
+import { GraphEdge } from '../../lib/graph/types';
 
 interface GraphDrawerProps {
   open: boolean;
   onClose: () => void;
   controlsPanel: React.ReactNode;
+  edges: GraphEdge[];
 }
 
 const DRAWER_WIDTH = 380;
@@ -13,6 +17,7 @@ export const GraphDrawer: React.FC<GraphDrawerProps> = ({
   open,
   onClose,
   controlsPanel,
+  edges,
 }) => {
   return (
     <Drawer
@@ -54,7 +59,7 @@ export const GraphDrawer: React.FC<GraphDrawerProps> = ({
           <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
             Legend
           </Typography>
-          {/* Placeholder for legend - will be populated in next steps */}
+          <EdgeLegend />
         </Box>
 
         <Divider />
@@ -64,7 +69,7 @@ export const GraphDrawer: React.FC<GraphDrawerProps> = ({
           <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
             Statistics
           </Typography>
-          {/* Placeholder for statistics - will be populated in next steps */}
+          <FKStats edges={edges} />
         </Box>
       </Box>
     </Drawer>

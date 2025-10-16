@@ -4,13 +4,13 @@ import ReactFlow, {
   Background,
   useNodesState,
   useEdgesState,
-  Panel,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+import { Fab, Tooltip } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import { CustomNode } from './CustomNode';
 import { FKAwareEdge } from './FKAwareEdge';
-import { EdgeLegend } from '../EdgeLegend/EdgeLegend';
-import { FKStats } from '../FKStats/FKStats';
 import { GraphNode, GraphEdge } from '../../lib/graph/types';
 import { filterByDepth } from '../../lib/graph/depthFilter';
 import { calculateTreeLayout } from '../../lib/graph/treeLayout';
@@ -121,6 +121,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       <GraphDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+        edges={flowEdges}
         controlsPanel={
           <GraphControlsPanel
             rootTypeInfos={rootTypeInfos}
@@ -137,7 +138,30 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           />
         }
       />
-      <div style={{ width: '100%', height: '800px' }}>
+
+      {/* Drawer toggle button */}
+      <Tooltip title={drawerOpen ? 'Close Controls' : 'Open Controls'} placement="right">
+        <Fab
+          color="primary"
+          aria-label={drawerOpen ? 'close drawer' : 'open drawer'}
+          onClick={() => setDrawerOpen(!drawerOpen)}
+          sx={{
+            position: 'fixed',
+            top: 16,
+            left: 16,
+            zIndex: 1200,
+            transition: 'all 0.3s ease',
+            transform: drawerOpen ? 'translateX(400px)' : 'translateX(0)',
+            '&:hover': {
+              transform: drawerOpen ? 'translateX(400px) scale(1.1)' : 'scale(1.1)',
+            },
+          }}
+        >
+          {drawerOpen ? <ChevronLeftIcon /> : <MenuIcon />}
+        </Fab>
+      </Tooltip>
+
+      <div style={{ width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0 }}>
         <ReactFlow
           nodes={flowNodes}
           edges={flowEdges}
@@ -194,16 +218,6 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 
           <Background />
           <Controls />
-
-          {/* Edge Legend */}
-          <Panel position="bottom-left" style={{ margin: 10 }}>
-            <EdgeLegend />
-          </Panel>
-
-          {/* FK Statistics */}
-          <Panel position="bottom-right" style={{ margin: 10 }}>
-            <FKStats edges={flowEdges} />
-          </Panel>
         </ReactFlow>
       </div>
     </>

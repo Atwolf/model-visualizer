@@ -8,18 +8,11 @@
  */
 
 import React from 'react';
-import { Box, Typography, Paper } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 
 export const EdgeLegend: React.FC = () => {
   return (
-    <Paper
-      elevation={2}
-      sx={{
-        p: 2,
-        bgcolor: 'background.paper',
-        minWidth: 280,
-      }}
-    >
+    <Box>
       <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600 }}>
         Edge Types
       </Typography>
@@ -81,6 +74,6 @@ export const EdgeLegend: React.FC = () => {
           </Typography>
         </Box>
       </Box>
-    </Paper>
+    </Box>
   );
 };
