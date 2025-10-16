@@ -18,6 +18,32 @@ import { GraphControlsPanel } from '../GraphControlsPanel/GraphControlsPanel';
 import { TypeInfo } from '../../lib/graph/typeUtils';
 import { filterFKEdges } from '../../lib/graph/edgeEnhancer';
 
+/**
+ * Remove nodes that have no edges connecting to them
+ *
+ * When filtering edges (e.g., FK-only mode), some nodes may become orphaned.
+ * This function removes nodes that aren't connected by any of the provided edges.
+ *
+ * @param nodes - All nodes
+ * @param edges - Filtered edges
+ * @returns Nodes that are connected by at least one edge
+ */
+function removeOrphanedNodes(nodes: GraphNode[], edges: GraphEdge[]): GraphNode[] {
+  // Build set of node IDs that are connected by edges
+  const connectedNodeIds = new Set<string>();
+
+  for (const edge of edges) {
+    connectedNodeIds.add(edge.source);
+    connectedNodeIds.add(edge.target);
+  }
+
+  // Keep root nodes (depth 0) even if they have no edges
+  // This ensures the graph always has starting points
+  return nodes.filter(
+    (node) => node.data.isRoot || connectedNodeIds.has(node.id)
+  );
+}
+
 interface GraphCanvasProps {
   nodes: GraphNode[];
   edges: GraphEdge[];
@@ -71,7 +97,12 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     // Apply FK filtering if enabled
     const finalEdges = showFKOnly ? filterFKEdges(filteredEdges) : filteredEdges;
 
-    const layoutedNodes = calculateTreeLayout(filteredNodes);
+    // Remove orphaned nodes when FK filtering is enabled
+    const finalNodes = showFKOnly
+      ? removeOrphanedNodes(filteredNodes, finalEdges)
+      : filteredNodes;
+
+    const layoutedNodes = calculateTreeLayout(finalNodes);
 
     // Convert all edges to use FK-aware edge type
     const typedEdges = finalEdges.map((edge) => ({
