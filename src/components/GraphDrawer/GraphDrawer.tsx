@@ -4,7 +4,7 @@ import { Drawer, Box, Typography, Divider } from '@mui/material';
 interface GraphDrawerProps {
   open: boolean;
   onClose: () => void;
-  children?: React.ReactNode;
+  controlsPanel: React.ReactNode;
 }
 
 const DRAWER_WIDTH = 380;
@@ -12,7 +12,7 @@ const DRAWER_WIDTH = 380;
 export const GraphDrawer: React.FC<GraphDrawerProps> = ({
   open,
   onClose,
-  children,
+  controlsPanel,
 }) => {
   return (
     <Drawer
@@ -44,7 +44,7 @@ export const GraphDrawer: React.FC<GraphDrawerProps> = ({
           <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
             Controls
           </Typography>
-          {/* Placeholder for controls - will be populated in next steps */}
+          {controlsPanel}
         </Box>
 
         <Divider />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import ReactFlow, {
   Controls,
   Background,
@@ -17,6 +17,7 @@ import { calculateTreeLayout } from '../../lib/graph/treeLayout';
 import { GraphControlsPanel } from '../GraphControlsPanel/GraphControlsPanel';
 import { TypeInfo } from '../../lib/graph/typeUtils';
 import { filterFKEdges } from '../../lib/graph/edgeEnhancer';
+import { GraphDrawer } from '../GraphDrawer/GraphDrawer';
 
 /**
  * Remove nodes that have no edges connecting to them
@@ -83,6 +84,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 }) => {
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState([]);
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState([]);
+  const [drawerOpen, setDrawerOpen] = useState(true);
 
   // Define custom node types
   const nodeTypes = useMemo(() => ({ custom: CustomNode }), []);
@@ -115,66 +117,11 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   }, [nodes, edges, maxDepth, showFKOnly, setFlowNodes, setFlowEdges]);
 
   return (
-    <div style={{ width: '100%', height: '800px' }}>
-      <ReactFlow
-        nodes={flowNodes}
-        edges={flowEdges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        fitView
-        attributionPosition="bottom-left"
-      >
-        {/* SVG marker definitions for FK-aware arrows */}
-        <svg>
-          <defs>
-            {/* Blue arrow for forward FKs */}
-            <marker
-              id="arrow-blue"
-              markerWidth="10"
-              markerHeight="10"
-              refX="9"
-              refY="3"
-              orient="auto"
-              markerUnits="strokeWidth"
-            >
-              <path d="M0,0 L0,6 L9,3 z" fill="#2563eb" />
-            </marker>
-
-            {/* Green arrow for reverse relationships */}
-            <marker
-              id="arrow-green"
-              markerWidth="10"
-              markerHeight="10"
-              refX="9"
-              refY="3"
-              orient="auto"
-              markerUnits="strokeWidth"
-            >
-              <path d="M0,0 L0,6 L9,3 z" fill="#10b981" />
-            </marker>
-
-            {/* Gray arrow for non-FK edges */}
-            <marker
-              id="arrow-gray"
-              markerWidth="10"
-              markerHeight="10"
-              refX="9"
-              refY="3"
-              orient="auto"
-              markerUnits="strokeWidth"
-            >
-              <path d="M0,0 L0,6 L9,3 z" fill="#94a3b8" />
-            </marker>
-          </defs>
-        </svg>
-
-        <Background />
-        <Controls />
-
-        {/* Combined controls panel */}
-        <Panel position="top-left" style={{ margin: 10 }}>
+    <>
+      <GraphDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        controlsPanel={
           <GraphControlsPanel
             rootTypeInfos={rootTypeInfos}
             selectedRootTypes={selectedRootTypes}
@@ -188,18 +135,77 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
             showFKOnly={showFKOnly}
             onToggleFKOnly={onToggleFKOnly}
           />
-        </Panel>
+        }
+      />
+      <div style={{ width: '100%', height: '800px' }}>
+        <ReactFlow
+          nodes={flowNodes}
+          edges={flowEdges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          fitView
+          attributionPosition="bottom-left"
+        >
+          {/* SVG marker definitions for FK-aware arrows */}
+          <svg>
+            <defs>
+              {/* Blue arrow for forward FKs */}
+              <marker
+                id="arrow-blue"
+                markerWidth="10"
+                markerHeight="10"
+                refX="9"
+                refY="3"
+                orient="auto"
+                markerUnits="strokeWidth"
+              >
+                <path d="M0,0 L0,6 L9,3 z" fill="#2563eb" />
+              </marker>
 
-        {/* Edge Legend */}
-        <Panel position="bottom-left" style={{ margin: 10 }}>
-          <EdgeLegend />
-        </Panel>
+              {/* Green arrow for reverse relationships */}
+              <marker
+                id="arrow-green"
+                markerWidth="10"
+                markerHeight="10"
+                refX="9"
+                refY="3"
+                orient="auto"
+                markerUnits="strokeWidth"
+              >
+                <path d="M0,0 L0,6 L9,3 z" fill="#10b981" />
+              </marker>
 
-        {/* FK Statistics */}
-        <Panel position="bottom-right" style={{ margin: 10 }}>
-          <FKStats edges={flowEdges} />
-        </Panel>
-      </ReactFlow>
-    </div>
+              {/* Gray arrow for non-FK edges */}
+              <marker
+                id="arrow-gray"
+                markerWidth="10"
+                markerHeight="10"
+                refX="9"
+                refY="3"
+                orient="auto"
+                markerUnits="strokeWidth"
+              >
+                <path d="M0,0 L0,6 L9,3 z" fill="#94a3b8" />
+              </marker>
+            </defs>
+          </svg>
+
+          <Background />
+          <Controls />
+
+          {/* Edge Legend */}
+          <Panel position="bottom-left" style={{ margin: 10 }}>
+            <EdgeLegend />
+          </Panel>
+
+          {/* FK Statistics */}
+          <Panel position="bottom-right" style={{ margin: 10 }}>
+            <FKStats edges={flowEdges} />
+          </Panel>
+        </ReactFlow>
+      </div>
+    </>
   );
 };
