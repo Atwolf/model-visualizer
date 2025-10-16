@@ -14,6 +14,7 @@ import {
 } from '../types/fkMetadata';
 import {
   inferFieldName,
+  inferReverseFieldName,
   isJunctionTable,
   isSelfReference,
 } from './fieldNameInference';
@@ -185,12 +186,29 @@ export function buildFKLookupMap(
       processedKeys.add(forwardKey);
       stats.forwardFKs++;
 
-      // Note: We do NOT create reverse relationship entries here.
-      // Reverse relationships are inferred from GraphQL introspection,
-      // not from the FK data. This prevents duplicate edges.
-      //
-      // If you need reverse lookups in the future, add them here with
-      // direction: 'reverse' and cardinality: 'one-to-many'.
+      // Step 6: Create reverse relationship entry
+      // For Location.devices (reverse of Device.location_id)
+      const reverseFieldName = inferReverseFieldName(fk.source_table);
+      const reverseKey = `${targetType}.${reverseFieldName}`;
+
+      // Only create reverse entry if it doesn't conflict with existing entry
+      if (!processedKeys.has(reverseKey)) {
+        const reverseMeta: FKMetadata = {
+          direction: 'reverse',
+          cardinality: isJunction ? 'many-to-many' : 'one-to-many',
+          sourceTable: fk.target_table, // Swap source/target for reverse
+          targetTable: fk.source_table,
+          sourceColumn: fk.target_column, // Swap columns for reverse
+          targetColumn: fk.source_column,
+          fieldName: reverseFieldName,
+          isJunctionTable: isJunction,
+          original: fk,
+        };
+
+        lookup.set(reverseKey, reverseMeta);
+        processedKeys.add(reverseKey);
+        stats.reverseFKs++;
+      }
     } catch (error) {
       console.error(`Error processing FK: ${JSON.stringify(fk)}`, error);
       stats.parseErrors++;
@@ -216,6 +234,7 @@ export function buildFKLookupMap(
   console.log('FK Lookup Map Statistics:', {
     totalFKs: stats.totalFKs,
     forwardFKs: stats.forwardFKs,
+    reverseFKs: stats.reverseFKs,
     lookupEntries: lookup.size,
     junctionTables: stats.junctionTables,
     selfReferences: stats.selfReferences,
@@ -223,6 +242,32 @@ export function buildFKLookupMap(
     unmappedTables: stats.unmappedTables,
     coverage: `${coverageRate.toFixed(1)}%`,
   });
+
+  // Debug: Log specific test relationship entries
+  const testKeys = [
+    'DeviceType.location',
+    'DeviceType.locationId',
+    'DeviceType.location_id',
+    'LocationType.devices',
+    'DeviceType.interfaces',
+    'InterfaceType.device',
+  ];
+
+  console.log('[FK Lookup Map Debug] Test relationship entries:');
+  for (const key of testKeys) {
+    const metadata = lookup.get(key);
+    if (metadata) {
+      console.log(`  ${key}: FOUND`, {
+        direction: metadata.direction,
+        cardinality: metadata.cardinality,
+        sourceTable: metadata.sourceTable,
+        targetTable: metadata.targetTable,
+        sourceColumn: metadata.sourceColumn,
+      });
+    } else {
+      console.log(`  ${key}: NOT FOUND`);
+    }
+  }
 
   return lookup;
 }

@@ -63,6 +63,32 @@ export function enhanceEdgeWithFK(
   const lookupKey = `${sourceType}.${fieldName}`;
   const fkMetadata = fkLookup.get(lookupKey);
 
+  // Debug logging for specific test relationships
+  const isTestRelationship =
+    (sourceType === 'DeviceType' && fieldName === 'location') ||
+    (sourceType === 'LocationType' && fieldName === 'devices') ||
+    (sourceType === 'DeviceType' && fieldName === 'interfaces') ||
+    (sourceType === 'InterfaceType' && fieldName === 'device');
+
+  if (isTestRelationship) {
+    console.log('[FK Lookup Debug]', {
+      sourceType,
+      fieldName,
+      lookupKey,
+      found: !!fkMetadata,
+      metadata: fkMetadata
+        ? {
+            direction: fkMetadata.direction,
+            cardinality: fkMetadata.cardinality,
+            sourceTable: fkMetadata.sourceTable,
+            targetTable: fkMetadata.targetTable,
+            sourceColumn: fkMetadata.sourceColumn,
+            targetColumn: fkMetadata.targetColumn,
+          }
+        : null,
+    });
+  }
+
   // If FK metadata found, enhance edge
   if (fkMetadata) {
     return {
