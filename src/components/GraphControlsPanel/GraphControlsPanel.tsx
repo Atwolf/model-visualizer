@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Box,
   Autocomplete,
@@ -10,17 +10,46 @@ import {
   Collapse,
   Paper,
   Typography,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import {
   Close as CloseIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
-import { categorizeType, NautobotApp } from '../../lib/graph/appTypeFilter';
+import { TypeInfo } from '../../lib/graph/typeUtils';
+
+// Nautobot app categories for UI organization
+type NautobotApp = 'DCIM' | 'IPAM' | 'CIRCUITS';
+
+// Categorize types by Nautobot app for visual organization
+function categorizeType(typename: string): NautobotApp {
+  const lower = typename.toLowerCase();
+
+  if (
+    lower.includes('ipaddress') ||
+    lower.includes('prefix') ||
+    lower.includes('vlan') ||
+    lower.includes('vrf') ||
+    lower.includes('namespace')
+  ) {
+    return 'IPAM';
+  }
+
+  if (
+    lower.includes('circuit') ||
+    lower.includes('provider')
+  ) {
+    return 'CIRCUITS';
+  }
+
+  return 'DCIM';
+}
 
 interface GraphControlsPanelProps {
   // Root type selection - types that can be selected as graph starting points
-  rootTypes: string[];
+  rootTypeInfos: TypeInfo[];
   selectedRootTypes: string[];
   onRootTypeSelect: (types: string[]) => void;
 
@@ -30,9 +59,13 @@ interface GraphControlsPanelProps {
 
   // Type filtering - additional types to include during graph traversal
   filterTypes: string[];
-  discoveredTypes: string[];
+  discoveredTypeInfos: TypeInfo[];
   onAddFilterType: (typename: string) => void;
   onRemoveFilterType: (typename: string) => void;
+
+  // FK filtering - show only FK edges
+  showFKOnly: boolean;
+  onToggleFKOnly: (enabled: boolean) => void;
 }
 
 const APP_COLORS: Record<NautobotApp, string> = {
@@ -42,20 +75,32 @@ const APP_COLORS: Record<NautobotApp, string> = {
 };
 
 export function GraphControlsPanel({
-  rootTypes,
+  rootTypeInfos,
   selectedRootTypes,
   onRootTypeSelect,
   depth,
   onDepthChange,
   filterTypes,
-  discoveredTypes,
+  discoveredTypeInfos,
   onAddFilterType,
   onRemoveFilterType,
+  showFKOnly,
+  onToggleFKOnly,
 }: GraphControlsPanelProps): JSX.Element {
   const [filterExpanded, setFilterExpanded] = useState(false);
 
-  // Organize filter types by app
-  const typesByApp: Record<NautobotApp, string[]> = {
+  // Create maps for quick lookup of display names
+  const typenameToDisplayName = useMemo(() => {
+    const map = new Map<string, string>();
+    discoveredTypeInfos.forEach(info => {
+      map.set(info.typename, info.displayName);
+    });
+    return map;
+  }, [discoveredTypeInfos]);
+
+
+  // Organize filter types by app with display names
+  const typesByApp: Record<NautobotApp, Array<{ typename: string; displayName: string }>> = {
     DCIM: [],
     IPAM: [],
     CIRCUITS: [],
@@ -63,7 +108,8 @@ export function GraphControlsPanel({
 
   filterTypes.forEach(typename => {
     const app = categorizeType(typename);
-    typesByApp[app].push(typename);
+    const displayName = typenameToDisplayName.get(typename) || typename;
+    typesByApp[app].push({ typename, displayName });
   });
 
   return (
@@ -87,10 +133,11 @@ export function GraphControlsPanel({
         <Autocomplete
           multiple
           size="small"
-          options={rootTypes}
-          value={selectedRootTypes}
-          onChange={(_, newValue) => onRootTypeSelect(newValue)}
-          disabled={rootTypes.length === 0}
+          options={rootTypeInfos}
+          getOptionLabel={(option) => option.displayName}
+          value={rootTypeInfos.filter(info => selectedRootTypes.includes(info.typename))}
+          onChange={(_, newValue) => onRootTypeSelect(newValue.map(v => v.typename))}
+          disabled={rootTypeInfos.length === 0}
           renderInput={(params) => (
             <TextField
               {...params}
@@ -102,12 +149,12 @@ export function GraphControlsPanel({
           renderTags={(value, getTagProps) =>
             value.map((option, index) => (
               <Chip
-                label={option}
+                label={option.displayName}
                 {...getTagProps({ index })}
                 size="small"
                 color="primary"
                 sx={{ height: 24 }}
-                key={option}
+                key={option.typename}
               />
             ))
           }
@@ -140,10 +187,30 @@ export function GraphControlsPanel({
             }}
           />
         </Box>
+
+        {/* FK Filter Toggle */}
+        <Box sx={{ px: 1, pt: 1 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={showFKOnly}
+                onChange={(e) => onToggleFKOnly(e.target.checked)}
+                size="small"
+                color="primary"
+              />
+            }
+            label={
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+                Show FK edges only
+              </Typography>
+            }
+            sx={{ m: 0 }}
+          />
+        </Box>
       </Box>
 
       {/* Type Filter Section - Collapsible */}
-      {discoveredTypes.length > 0 && (
+      {discoveredTypeInfos.length > 0 && (
         <>
           <Divider />
           <Box>
@@ -176,18 +243,19 @@ export function GraphControlsPanel({
                 {/* Add Types Autocomplete */}
                 <Autocomplete
                   size="small"
-                  options={discoveredTypes.sort((a, b) => {
-                    const appA = categorizeType(a);
-                    const appB = categorizeType(b);
+                  options={discoveredTypeInfos.sort((a, b) => {
+                    const appA = categorizeType(a.typename);
+                    const appB = categorizeType(b.typename);
                     if (appA !== appB) {
                       const order = { DCIM: 0, IPAM: 1, CIRCUITS: 2 };
                       return order[appA] - order[appB];
                     }
-                    return a.localeCompare(b);
+                    return a.displayName.localeCompare(b.displayName);
                   })}
+                  getOptionLabel={(option) => option.displayName}
                   value={null}
-                  onChange={(_, value) => value && onAddFilterType(value)}
-                  groupBy={(option) => categorizeType(option)}
+                  onChange={(_, value) => value && onAddFilterType(value.typename)}
+                  groupBy={(option) => categorizeType(option.typename)}
                   renderInput={(params) => (
                     <TextField
                       {...params}
@@ -196,14 +264,14 @@ export function GraphControlsPanel({
                     />
                   )}
                   renderOption={(props, option) => {
-                    const app = categorizeType(option);
-                    const isSelected = filterTypes.includes(option);
+                    const app = categorizeType(option.typename);
+                    const isSelected = filterTypes.includes(option.typename);
 
                     return (
                       <Box
                         component="li"
                         {...props}
-                        key={option}
+                        key={option.typename}
                         sx={{
                           fontSize: '0.875rem',
                           py: 0.5,
@@ -222,7 +290,7 @@ export function GraphControlsPanel({
                             minWidth: 60,
                           }}
                         />
-                        {option}
+                        {option.displayName}
                       </Box>
                     );
                   }}
@@ -249,11 +317,11 @@ export function GraphControlsPanel({
                         {app} ({types.length})
                       </Typography>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
-                        {types.map((typename) => (
+                        {types.map((typeInfo) => (
                           <Chip
-                            key={typename}
-                            label={typename}
-                            onDelete={() => onRemoveFilterType(typename)}
+                            key={typeInfo.typename}
+                            label={typeInfo.displayName}
+                            onDelete={() => onRemoveFilterType(typeInfo.typename)}
                             deleteIcon={<CloseIcon />}
                             size="small"
                             sx={{
