@@ -12,6 +12,7 @@ import { parseForeignKeysFromModule } from './utils/fkParser';
 import { buildNameMapper } from './utils/nameMapper';
 import { buildFKLookupMap } from './utils/fkLookup';
 import sqlExportData from './data/sql_export.json';
+import { DEFAULT_ROOT_TYPE, DEFAULT_DEPTH, INITIAL_FILTER_TYPES } from './constants/defaults';
 
 function App() {
   // Type fetcher for dynamic loading
@@ -27,38 +28,13 @@ function App() {
     const primaryTypenames = filterPrimaryModels(allTypenames);
 
     // Filter TypeInfo objects to only include primary models
-    const filtered = discoveredTypeInfos.filter(typeInfo =>
+    return discoveredTypeInfos.filter(typeInfo =>
       primaryTypenames.includes(typeInfo.typename)
     );
-
-    console.log('[App] Filtered primary models:', {
-      totalDiscovered: discoveredTypeInfos.length,
-      primaryModels: filtered.length,
-      sampleDisplay: filtered.slice(0, 5).map(t => `${t.typename} -> ${t.displayName}`),
-    });
-    return filtered;
   }, [discoveredTypeInfos]);
 
-  // Initial filter types - typenames that should be pre-selected
-  const INITIAL_FILTER_TYPES = [
-    'VLANType',
-    'VRFType',
-    'IPAddressType',
-    'CircuitType',
-    'CircuitTerminationType',
-    'ProviderType',
-    'ProviderNetworkType',
-    'DeviceType',
-    'InterfaceType',
-    'StatusType',
-    'RackType',
-    'LocationType',
-    'IPAddressFamilyType',
-    'PlatformType',
-  ];
-
-  const [depth, setDepth] = useState(2);
-  const [selectedRootTypes, setSelectedRootTypes] = useState<string[]>([]);
+  const [depth, setDepth] = useState(DEFAULT_DEPTH);
+  const [selectedRootTypes, setSelectedRootTypes] = useState<string[]>([DEFAULT_ROOT_TYPE]);
   const [filterTypes, setFilterTypes] = useState<string[]>([]);
   const [showFKOnly, setShowFKOnly] = useState(false);
   const [typeData, setTypeData] = useState<Map<string, IntrospectionType>>(new Map());
@@ -67,9 +43,6 @@ function App() {
     edges: GraphEdge[];
   }>({ nodes: [], edges: [] });
 
-  // Use primaryModelTypeInfos as both rootTypes and available filter types
-  const rootTypeInfos = primaryModelTypeInfos;
-
   // Set initial filter types once types are discovered
   useEffect(() => {
     if (primaryModelTypeInfos.length > 0 && filterTypes.length === 0) {
@@ -77,19 +50,12 @@ function App() {
       const validInitialFilters = INITIAL_FILTER_TYPES.filter(typename =>
         primaryTypenames.includes(typename)
       );
-
-      console.log('[App] Setting initial filter types:', {
-        requested: INITIAL_FILTER_TYPES.length,
-        valid: validInitialFilters.length,
-        filters: validInitialFilters,
-      });
-
       setFilterTypes(validInitialFilters);
     }
-  }, [primaryModelTypeInfos]);
+  }, [primaryModelTypeInfos, filterTypes.length]);
 
   // Handle root type selection - fetch introspection data for selected types
-  const handleRootTypeSelection = async (newTypes: string[]) => {
+  const handleRootTypeSelection = useCallback(async (newTypes: string[]) => {
     setSelectedRootTypes(newTypes);
 
     // Fetch introspection data for newly selected types
@@ -99,7 +65,14 @@ function App() {
     } else {
       setTypeData(new Map());
     }
-  };
+  }, [fetchMultipleTypes]);
+
+  // Auto-fetch initial root type data when types are discovered
+  useEffect(() => {
+    if (primaryModelTypeInfos.length > 0 && selectedRootTypes.length > 0 && typeData.size === 0) {
+      handleRootTypeSelection(selectedRootTypes);
+    }
+  }, [primaryModelTypeInfos.length, selectedRootTypes, typeData.size, handleRootTypeSelection]);
 
   // Type filter function - include types that are in the filterTypes list
   const typeFilter = useCallback((typename: string): boolean => {
@@ -128,11 +101,8 @@ function App() {
   // FK System Integration: Build FK lookup map from type discovery
   const fkLookup = useMemo(() => {
     try {
-      console.log('[App] Building FK lookup system...');
-
       // Step 1: Parse FK data from sql_export.json
       const foreignKeys = parseForeignKeysFromModule(sqlExportData);
-      console.log(`[App] Parsed ${foreignKeys.length} foreign keys`);
 
       // Step 2: Build name mapper from discovered types
       const allTypenames = extractTypenames(discoveredTypeInfos);
@@ -142,11 +112,9 @@ function App() {
       }
 
       const nameMapper = buildNameMapper(allTypenames);
-      console.log(`[App] Built name mapper with ${nameMapper.getAllTypes().length} types`);
 
       // Step 3: Build FK lookup map
       const lookup = buildFKLookupMap(foreignKeys, nameMapper);
-      console.log(`[App] Built FK lookup with ${lookup.size} entries`);
 
       return lookup;
     } catch (error) {
@@ -188,11 +156,6 @@ function App() {
       );
 
       if (!cancelled) {
-        console.log('[App] Graph built:', {
-          nodesCreated: nodes.length,
-          edgesCreated: edges.length,
-          filterTypesActive: filterTypes.length,
-        });
         setGraphData({ nodes, edges });
       }
     };
@@ -257,7 +220,7 @@ function App() {
         maxDepth={depth}
         depth={depth}
         onDepthChange={setDepth}
-        rootTypeInfos={rootTypeInfos}
+        rootTypeInfos={primaryModelTypeInfos}
         selectedRootTypes={selectedRootTypes}
         onRootTypeSelect={handleRootTypeSelection}
         filterTypes={filterTypes}

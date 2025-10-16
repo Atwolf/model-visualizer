@@ -16,6 +16,15 @@ import { TypeInfo } from '../../lib/graph/typeUtils';
 import { filterFKEdges } from '../../lib/graph/edgeEnhancer';
 import { GraphDrawer } from '../GraphDrawer/GraphDrawer';
 
+// Full viewport styles for the graph container
+const GRAPH_CONTAINER_STYLE = {
+  width: '100vw',
+  height: '100vh',
+  position: 'fixed' as const,
+  top: 0,
+  left: 0,
+};
+
 /**
  * Remove nodes that have no edges connecting to them
  *
@@ -81,7 +90,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 }) => {
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState([]);
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState([]);
-  const [drawerOpen, setDrawerOpen] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Define custom node types
   const nodeTypes = useMemo(() => ({ custom: CustomNode }), []);
@@ -136,7 +145,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
         }
       />
 
-      <div style={{ width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0 }}>
+      <div style={GRAPH_CONTAINER_STYLE}>
         <ReactFlow
           nodes={flowNodes}
           edges={flowEdges}
