@@ -8,7 +8,6 @@ import {
   Divider,
   IconButton,
   Collapse,
-  Paper,
   Typography,
   FormControlLabel,
   Switch,
@@ -19,6 +18,7 @@ import {
   ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
 import { TypeInfo } from '../../lib/graph/typeUtils';
+import { APP_ORDER } from '../../constants/defaults';
 
 // Nautobot app categories for UI organization
 type NautobotApp = 'DCIM' | 'IPAM' | 'CIRCUITS';
@@ -98,66 +98,60 @@ export function GraphControlsPanel({
     return map;
   }, [discoveredTypeInfos]);
 
+  // Memoized sorted list to prevent sorting on every render
+  const sortedTypeInfos = useMemo(() => {
+    return [...discoveredTypeInfos].sort((a, b) => {
+      const appA = categorizeType(a.typename);
+      const appB = categorizeType(b.typename);
+      if (appA !== appB) {
+        return APP_ORDER[appA] - APP_ORDER[appB];
+      }
+      return a.displayName.localeCompare(b.displayName);
+    });
+  }, [discoveredTypeInfos]);
 
   // Organize filter types by app with display names
-  const typesByApp: Record<NautobotApp, Array<{ typename: string; displayName: string }>> = {
-    DCIM: [],
-    IPAM: [],
-    CIRCUITS: [],
-  };
+  const typesByApp = useMemo(() => {
+    const organized: Record<NautobotApp, Array<{ typename: string; displayName: string }>> = {
+      DCIM: [],
+      IPAM: [],
+      CIRCUITS: [],
+    };
 
-  filterTypes.forEach(typename => {
-    const app = categorizeType(typename);
-    const displayName = typenameToDisplayName.get(typename) || typename;
-    typesByApp[app].push({ typename, displayName });
-  });
+    filterTypes.forEach(typename => {
+      const app = categorizeType(typename);
+      const displayName = typenameToDisplayName.get(typename) || typename;
+      organized[app].push({ typename, displayName });
+    });
+
+    return organized;
+  }, [filterTypes, typenameToDisplayName]);
 
   return (
-    <Paper
-      elevation={4}
+    <Box
       sx={{
-        width: 360,
-        maxHeight: '90vh',
-        overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: 'rgba(255, 255, 255, 0.97)',
-        backdropFilter: 'blur(12px)',
-        border: '1px solid',
-        borderColor: 'divider',
       }}
     >
       {/* Main Controls - Always Visible */}
-      <Box sx={{ p: 2, pb: 1.5 }}>
-        {/* Root Types - Starting points for graph visualization */}
+      <Box sx={{ pb: 1.5 }}>
+        {/* Root Type - Starting point for graph visualization */}
         <Autocomplete
-          multiple
           size="small"
           options={rootTypeInfos}
           getOptionLabel={(option) => option.displayName}
-          value={rootTypeInfos.filter(info => selectedRootTypes.includes(info.typename))}
-          onChange={(_, newValue) => onRootTypeSelect(newValue.map(v => v.typename))}
+          value={rootTypeInfos.find(info => selectedRootTypes.includes(info.typename)) || null}
+          onChange={(_, newValue) => onRootTypeSelect(newValue ? [newValue.typename] : [])}
           disabled={rootTypeInfos.length === 0}
           renderInput={(params) => (
             <TextField
               {...params}
-              label="Root Types"
-              placeholder="Select types..."
+              label="Root Type"
+              placeholder="Select type..."
               size="small"
             />
           )}
-          renderTags={(value, getTagProps) =>
-            value.map((option, index) => (
-              <Chip
-                label={option.displayName}
-                {...getTagProps({ index })}
-                size="small"
-                color="primary"
-                sx={{ height: 24 }}
-                key={option.typename}
-              />
-            ))
-          }
           sx={{ mb: 2 }}
         />
 
@@ -243,15 +237,7 @@ export function GraphControlsPanel({
                 {/* Add Types Autocomplete */}
                 <Autocomplete
                   size="small"
-                  options={discoveredTypeInfos.sort((a, b) => {
-                    const appA = categorizeType(a.typename);
-                    const appB = categorizeType(b.typename);
-                    if (appA !== appB) {
-                      const order = { DCIM: 0, IPAM: 1, CIRCUITS: 2 };
-                      return order[appA] - order[appB];
-                    }
-                    return a.displayName.localeCompare(b.displayName);
-                  })}
+                  options={sortedTypeInfos}
                   getOptionLabel={(option) => option.displayName}
                   value={null}
                   onChange={(_, value) => value && onAddFilterType(value.typename)}
@@ -348,6 +334,6 @@ export function GraphControlsPanel({
           </Box>
         </>
       )}
-    </Paper>
+    </Box>
   );
 }

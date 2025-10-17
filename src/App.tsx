@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Container, Box, Alert, CircularProgress } from '@mui/material';
+import { Box, Alert, CircularProgress } from '@mui/material';
 import { GraphCanvas } from './components/GraphCanvas/GraphCanvas';
 import { buildGraphFromIntrospection, TransformOptions } from './lib/graph/graphqlTransformer';
 import { GraphNode, GraphEdge } from './lib/graph/types';
@@ -12,6 +12,7 @@ import { parseForeignKeysFromModule } from './utils/fkParser';
 import { buildNameMapper } from './utils/nameMapper';
 import { buildFKLookupMap } from './utils/fkLookup';
 import sqlExportData from './data/sql_export.json';
+import { DEFAULT_ROOT_TYPE, DEFAULT_DEPTH, INITIAL_FILTER_TYPES } from './constants/defaults';
 
 function App() {
   // Type fetcher for dynamic loading
@@ -27,48 +28,21 @@ function App() {
     const primaryTypenames = filterPrimaryModels(allTypenames);
 
     // Filter TypeInfo objects to only include primary models
-    const filtered = discoveredTypeInfos.filter(typeInfo =>
+    return discoveredTypeInfos.filter(typeInfo =>
       primaryTypenames.includes(typeInfo.typename)
     );
-
-    console.log('[App] Filtered primary models:', {
-      totalDiscovered: discoveredTypeInfos.length,
-      primaryModels: filtered.length,
-      sampleDisplay: filtered.slice(0, 5).map(t => `${t.typename} -> ${t.displayName}`),
-    });
-    return filtered;
   }, [discoveredTypeInfos]);
 
-  // Initial filter types - typenames that should be pre-selected
-  const INITIAL_FILTER_TYPES = [
-    'VLANType',
-    'VRFType',
-    'IPAddressType',
-    'CircuitType',
-    'CircuitTerminationType',
-    'ProviderType',
-    'ProviderNetworkType',
-    'DeviceType',
-    'InterfaceType',
-    'StatusType',
-    'RackType',
-    'LocationType',
-    'IPAddressFamilyType',
-    'PlatformType',
-  ];
-
-  const [depth, setDepth] = useState(2);
-  const [selectedRootTypes, setSelectedRootTypes] = useState<string[]>([]);
+  const [depth, setDepth] = useState(DEFAULT_DEPTH);
+  const [selectedRootTypes, setSelectedRootTypes] = useState<string[]>([DEFAULT_ROOT_TYPE]);
   const [filterTypes, setFilterTypes] = useState<string[]>([]);
   const [showFKOnly, setShowFKOnly] = useState(false);
+  const [initialFetchDone, setInitialFetchDone] = useState(false);
   const [typeData, setTypeData] = useState<Map<string, IntrospectionType>>(new Map());
   const [graphData, setGraphData] = useState<{
     nodes: GraphNode[];
     edges: GraphEdge[];
   }>({ nodes: [], edges: [] });
-
-  // Use primaryModelTypeInfos as both rootTypes and available filter types
-  const rootTypeInfos = primaryModelTypeInfos;
 
   // Set initial filter types once types are discovered
   useEffect(() => {
@@ -77,19 +51,12 @@ function App() {
       const validInitialFilters = INITIAL_FILTER_TYPES.filter(typename =>
         primaryTypenames.includes(typename)
       );
-
-      console.log('[App] Setting initial filter types:', {
-        requested: INITIAL_FILTER_TYPES.length,
-        valid: validInitialFilters.length,
-        filters: validInitialFilters,
-      });
-
       setFilterTypes(validInitialFilters);
     }
-  }, [primaryModelTypeInfos]);
+  }, [primaryModelTypeInfos, filterTypes.length]);
 
   // Handle root type selection - fetch introspection data for selected types
-  const handleRootTypeSelection = async (newTypes: string[]) => {
+  const handleRootTypeSelection = useCallback(async (newTypes: string[]) => {
     setSelectedRootTypes(newTypes);
 
     // Fetch introspection data for newly selected types
@@ -99,7 +66,15 @@ function App() {
     } else {
       setTypeData(new Map());
     }
-  };
+  }, [fetchMultipleTypes]);
+
+  // Auto-fetch initial root type data when types are discovered
+  useEffect(() => {
+    if (primaryModelTypeInfos.length > 0 && !initialFetchDone && selectedRootTypes.length > 0 && typeData.size === 0) {
+      handleRootTypeSelection(selectedRootTypes);
+      setInitialFetchDone(true);
+    }
+  }, [primaryModelTypeInfos.length, selectedRootTypes, handleRootTypeSelection, initialFetchDone, typeData.size]);
 
   // Type filter function - include types that are in the filterTypes list
   const typeFilter = useCallback((typename: string): boolean => {
@@ -128,11 +103,8 @@ function App() {
   // FK System Integration: Build FK lookup map from type discovery
   const fkLookup = useMemo(() => {
     try {
-      console.log('[App] Building FK lookup system...');
-
       // Step 1: Parse FK data from sql_export.json
       const foreignKeys = parseForeignKeysFromModule(sqlExportData);
-      console.log(`[App] Parsed ${foreignKeys.length} foreign keys`);
 
       // Step 2: Build name mapper from discovered types
       const allTypenames = extractTypenames(discoveredTypeInfos);
@@ -142,11 +114,9 @@ function App() {
       }
 
       const nameMapper = buildNameMapper(allTypenames);
-      console.log(`[App] Built name mapper with ${nameMapper.getAllTypes().length} types`);
 
       // Step 3: Build FK lookup map
       const lookup = buildFKLookupMap(foreignKeys, nameMapper);
-      console.log(`[App] Built FK lookup with ${lookup.size} entries`);
 
       return lookup;
     } catch (error) {
@@ -188,11 +158,6 @@ function App() {
       );
 
       if (!cancelled) {
-        console.log('[App] Graph built:', {
-          nodesCreated: nodes.length,
-          edgesCreated: edges.length,
-          filterTypesActive: filterTypes.length,
-        });
         setGraphData({ nodes, edges });
       }
     };
@@ -206,42 +171,68 @@ function App() {
   }, [selectedRootTypes, typeData, transformOptions, fetchMultipleTypes, filterTypes.length]);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      {/* Loading state */}
+    <>
+      {/* Loading state - overlay on top */}
       {typesDiscoveryLoading && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 16,
+            right: 16,
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            bgcolor: 'background.paper',
+            p: 2,
+            borderRadius: 1,
+            boxShadow: 3,
+          }}
+        >
           <CircularProgress size={24} />
-          <Alert severity="info">Discovering types from GraphQL schema...</Alert>
+          <Alert severity="info" sx={{ m: 0 }}>
+            Discovering types from GraphQL schema...
+          </Alert>
         </Box>
       )}
 
-      {/* Type discovery error */}
+      {/* Type discovery error - overlay on top */}
       {typesDiscoveryError && !typesDiscoveryLoading && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          Failed to discover types: {typesDiscoveryError}
-        </Alert>
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 16,
+            right: 16,
+            zIndex: 2000,
+            bgcolor: 'background.paper',
+            borderRadius: 1,
+            boxShadow: 3,
+          }}
+        >
+          <Alert severity="error">
+            Failed to discover types: {typesDiscoveryError}
+          </Alert>
+        </Box>
       )}
 
-      {/* Graph with integrated control panel */}
-      <Box sx={{ border: '1px solid #ddd', borderRadius: 2, overflow: 'hidden' }}>
-        <GraphCanvas
-          nodes={graphData.nodes}
-          edges={graphData.edges}
-          maxDepth={depth}
-          depth={depth}
-          onDepthChange={setDepth}
-          rootTypeInfos={rootTypeInfos}
-          selectedRootTypes={selectedRootTypes}
-          onRootTypeSelect={handleRootTypeSelection}
-          filterTypes={filterTypes}
-          discoveredTypeInfos={primaryModelTypeInfos}
-          onAddFilterType={handleAddFilterType}
-          onRemoveFilterType={handleRemoveFilterType}
-          showFKOnly={showFKOnly}
-          onToggleFKOnly={setShowFKOnly}
-        />
-      </Box>
-    </Container>
+      {/* Graph fills entire viewport */}
+      <GraphCanvas
+        nodes={graphData.nodes}
+        edges={graphData.edges}
+        maxDepth={depth}
+        depth={depth}
+        onDepthChange={setDepth}
+        rootTypeInfos={primaryModelTypeInfos}
+        selectedRootTypes={selectedRootTypes}
+        onRootTypeSelect={handleRootTypeSelection}
+        filterTypes={filterTypes}
+        discoveredTypeInfos={primaryModelTypeInfos}
+        onAddFilterType={handleAddFilterType}
+        onRemoveFilterType={handleRemoveFilterType}
+        showFKOnly={showFKOnly}
+        onToggleFKOnly={setShowFKOnly}
+      />
+    </>
   );
 }
 
