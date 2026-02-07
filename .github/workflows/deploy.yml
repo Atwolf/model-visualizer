@@ -27,6 +27,12 @@ jobs:
 
       - run: npm ci
 
+      - name: Pre-fetch schema data
+        run: node scripts/prefetch-schema.mjs
+        env:
+          VITE_NAUTOBOT_URL: ${{ secrets.VITE_NAUTOBOT_URL }}
+          VITE_NAUTOBOT_API_TOKEN: ${{ secrets.VITE_NAUTOBOT_API_TOKEN }}
+
       - run: npm run build
         env:
           VITE_NAUTOBOT_URL: ${{ secrets.VITE_NAUTOBOT_URL }}

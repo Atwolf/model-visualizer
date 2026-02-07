@@ -1,4 +1,5 @@
 import { executeGraphQLQuery } from './client';
+import schemaCache from '../../data/schema-cache.json';
 
 // ============================================================================
 // Type Definitions
@@ -113,6 +114,13 @@ const SCALAR_TYPES = new Set([
 export async function introspectType(
   typename: string
 ): Promise<IntrospectionType> {
+  // Cache-first: return pre-fetched data if available (production / GitHub Pages)
+  const cached = (schemaCache.types as unknown as Record<string, IntrospectionType>)[typename];
+  if (cached) {
+    return cached;
+  }
+
+  // Fallback: live API call (local development)
   const response = await executeGraphQLQuery<TypeIntrospectionResult>(
     TYPE_INTROSPECTION_QUERY,
     { typename }
@@ -234,6 +242,15 @@ interface DiscoverTypesResult {
 }
 
 export async function discoverAllTypes(): Promise<string[]> {
+  // Cache-first: return pre-fetched list if available (production / GitHub Pages)
+  if (schemaCache.discoveredTypes.length > 0) {
+    console.log('[Type Discovery] Using cached data:', {
+      objectTypes: schemaCache.discoveredTypes.length,
+    });
+    return schemaCache.discoveredTypes;
+  }
+
+  // Fallback: live API call (local development)
   console.log('[Type Discovery] Starting schema introspection...');
 
   const response = await executeGraphQLQuery<DiscoverTypesResult>(
