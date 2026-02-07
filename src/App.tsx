@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Box, Alert, CircularProgress } from '@mui/material';
+import { Box, Alert, CircularProgress, IconButton } from '@mui/material';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import { IntroModal } from './components/IntroModal/IntroModal';
 import { GraphCanvas } from './components/GraphCanvas/GraphCanvas';
 import { buildGraphFromIntrospection, TransformOptions } from './lib/graph/graphqlTransformer';
 import { GraphNode, GraphEdge } from './lib/graph/types';
@@ -15,6 +17,10 @@ import sqlExportData from './data/sql_export.json';
 import { DEFAULT_ROOT_TYPE, DEFAULT_DEPTH, INITIAL_FILTER_TYPES } from './constants/defaults';
 
 function App() {
+  const [showIntro, setShowIntro] = useState(
+    () => !localStorage.getItem('modelVisualizer_hideIntro')
+  );
+
   // Type fetcher for dynamic loading
   const { fetchMultipleTypes } = useTypeFetcher();
 
@@ -232,6 +238,29 @@ function App() {
         showFKOnly={showFKOnly}
         onToggleFKOnly={setShowFKOnly}
       />
+
+      {/* Intro modal for first-time visitors */}
+      <IntroModal open={showIntro} onClose={() => setShowIntro(false)} />
+
+      {/* Help button to re-open intro */}
+      <IconButton
+        onClick={() => setShowIntro(true)}
+        aria-label="show help"
+        size="small"
+        sx={{
+          position: 'fixed',
+          top: 16,
+          right: 56,
+          zIndex: 1500,
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          border: '1px solid rgba(0, 0, 0, 0.12)',
+          '&:hover': {
+            backgroundColor: 'rgba(255, 255, 255, 1)',
+          },
+        }}
+      >
+        <HelpOutlineIcon fontSize="small" />
+      </IconButton>
     </>
   );
 }
