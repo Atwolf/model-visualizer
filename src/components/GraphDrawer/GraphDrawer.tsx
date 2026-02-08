@@ -1,7 +1,9 @@
-import React from 'react';
-import { Drawer, Box, Typography, Divider, IconButton } from '@mui/material';
+import React, { useState } from 'react';
+import { Drawer, Box, Typography, Divider, IconButton, Collapse } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import { EdgeLegend } from '../EdgeLegend/EdgeLegend';
 import { FKStats } from '../FKStats/FKStats';
 import { GraphEdge } from '../../lib/graph/types';
@@ -21,6 +23,10 @@ export const GraphDrawer: React.FC<GraphDrawerProps> = ({
   controlsPanel,
   edges,
 }) => {
+  const [aboutExpanded, setAboutExpanded] = useState(false);
+  const [legendExpanded, setLegendExpanded] = useState(false);
+  const [statsExpanded, setStatsExpanded] = useState(false);
+
   return (
     <>
       <Drawer
@@ -46,9 +52,69 @@ export const GraphDrawer: React.FC<GraphDrawerProps> = ({
             p: 2,
           }}
         >
+          {/* Application Title */}
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+            Nautobot Model Visualizer
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
+            Interactive graph visualization of Nautobot data model relationships.
+          </Typography>
+
+          {/* About Section - Collapsible */}
+          <Box
+            onClick={() => setAboutExpanded(!aboutExpanded)}
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              cursor: 'pointer',
+              py: 0.75,
+              '&:hover': { backgroundColor: 'action.hover' },
+              borderRadius: 1,
+              px: 1,
+              mx: -1,
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              About
+            </Typography>
+            <IconButton size="small" tabIndex={-1}>
+              {aboutExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+            </IconButton>
+          </Box>
+          <Collapse in={aboutExpanded}>
+            <Box sx={{ pb: 1.5, pt: 0.5 }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1, lineHeight: 1.6 }}>
+                This tool visualizes how Nautobot data models relate to each other by
+                combining two data sources:
+              </Typography>
+              <Box component="ul" sx={{ pl: 2, mt: 0, mb: 1, '& li': { mb: 0.5 } }}>
+                <li>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.5 }}>
+                    <strong>GraphQL introspection</strong> &mdash; queries the Nautobot API schema
+                    to discover models and their field-level relationships.
+                  </Typography>
+                </li>
+                <li>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.5 }}>
+                    <strong>PostgreSQL foreign keys</strong> &mdash; parsed from a database export
+                    to identify true FK constraints, direction, and cardinality.
+                  </Typography>
+                </li>
+              </Box>
+              <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.6 }}>
+                The graph is built by selecting a root model and traversing its relationships
+                breadth-first up to a configurable depth. Edges are color-coded to distinguish
+                forward FKs, reverse relations, and GraphQL-only fields.
+              </Typography>
+            </Box>
+          </Collapse>
+
+          <Divider sx={{ mb: 1.5 }} />
+
           {/* Controls Section */}
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
+          <Box sx={{ mb: 1.5 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
               Controls
             </Typography>
             {controlsPanel}
@@ -56,23 +122,71 @@ export const GraphDrawer: React.FC<GraphDrawerProps> = ({
 
           <Divider />
 
-          {/* Legend Section */}
-          <Box sx={{ my: 2 }}>
-            <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
-              Legend
+          {/* Legend Section - Collapsible */}
+          <Box
+            onClick={() => setLegendExpanded(!legendExpanded)}
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              cursor: 'pointer',
+              py: 0.75,
+              mt: 0.5,
+              '&:hover': { backgroundColor: 'action.hover' },
+              borderRadius: 1,
+              px: 1,
+              mx: -1,
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              Edge Legend
             </Typography>
-            <EdgeLegend />
+            <IconButton size="small" tabIndex={-1}>
+              {legendExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+            </IconButton>
           </Box>
+          <Collapse in={legendExpanded}>
+            <Box sx={{ pb: 1.5, pt: 0.5 }}>
+              <EdgeLegend />
+            </Box>
+          </Collapse>
 
           <Divider />
 
-          {/* Stats Section */}
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
+          {/* Statistics Section - Collapsible */}
+          <Box
+            onClick={() => setStatsExpanded(!statsExpanded)}
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              cursor: 'pointer',
+              py: 0.75,
+              mt: 0.5,
+              '&:hover': { backgroundColor: 'action.hover' },
+              borderRadius: 1,
+              px: 1,
+              mx: -1,
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
               Statistics
             </Typography>
-            <FKStats edges={edges} />
+            <IconButton size="small" tabIndex={-1}>
+              {statsExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+            </IconButton>
           </Box>
+          <Collapse in={statsExpanded}>
+            <Box sx={{ pb: 1.5, pt: 0.5 }}>
+              <FKStats edges={edges} />
+            </Box>
+          </Collapse>
+
+          {/* Interaction Tips */}
+          <Divider sx={{ mt: 0.5 }} />
+          <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block', mt: 1.5, lineHeight: 1.5 }}>
+            Pan by dragging the canvas. Zoom with scroll. Edge colors indicate FK direction.
+          </Typography>
         </Box>
       </Drawer>
 

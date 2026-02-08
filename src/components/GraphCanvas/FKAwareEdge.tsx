@@ -11,7 +11,6 @@ import React from 'react';
 import {
   BaseEdge,
   EdgeProps,
-  EdgeLabelRenderer,
   getStraightPath,
 } from 'reactflow';
 import { FKEdgeData } from '../../lib/graph/types';
@@ -20,7 +19,7 @@ export const FKAwareEdge: React.FC<EdgeProps<FKEdgeData>> = (props) => {
   const { id, sourceX, sourceY, targetX, targetY, data } = props;
 
   // Calculate straight path for horizontal tree layout
-  const [edgePath, labelX, labelY] = getStraightPath({
+  const [edgePath] = getStraightPath({
     sourceX,
     sourceY,
     targetX,
@@ -32,36 +31,7 @@ export const FKAwareEdge: React.FC<EdgeProps<FKEdgeData>> = (props) => {
   const markerEnd = getMarkerEnd(data);
 
   return (
-    <>
-      <BaseEdge id={id} path={edgePath} style={style} markerEnd={markerEnd} />
-      {data?.isFK && (
-        <EdgeLabelRenderer>
-          <div
-            style={{
-              position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-              fontSize: 10,
-              pointerEvents: 'all',
-              background: 'white',
-              padding: '2px 4px',
-              borderRadius: '3px',
-              border: '1px solid #e5e7eb',
-            }}
-            className="fk-edge-label"
-            title={`${data.direction} FK (${data.cardinality})`}
-          >
-            <span
-              style={{
-                color: data.direction === 'forward' ? '#2563eb' : '#10b981',
-                fontWeight: 600,
-              }}
-            >
-              FK
-            </span>
-          </div>
-        </EdgeLabelRenderer>
-      )}
-    </>
+    <BaseEdge id={id} path={edgePath} style={style} markerEnd={markerEnd} />
   );
 };
 
