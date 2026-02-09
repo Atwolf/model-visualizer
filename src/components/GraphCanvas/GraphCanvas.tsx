@@ -90,7 +90,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
 }) => {
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState([]);
   const [flowEdges, setFlowEdges, onEdgesChange] = useEdgesState([]);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(true);
 
   // Define custom node types
   const nodeTypes = useMemo(() => ({ custom: CustomNode }), []);
